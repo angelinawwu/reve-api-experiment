@@ -371,17 +371,25 @@ button:disabled {
 
 .coord-row {
   display: grid;
-  grid-template-columns: 1fr 80px 48px;
+  grid-template-columns: 70px 1fr 70px 40px;
   align-items: center;
   gap: 8px;
 }
 
-.coord-label {
+.coord-pole {
   font-size: 11px;
   color: var(--text-dim);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.coord-pole-left {
+  text-align: right;
+}
+
+.coord-pole-right {
+  text-align: left;
 }
 
 .coord-value {

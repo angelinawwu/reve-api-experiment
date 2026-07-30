@@ -22,8 +22,8 @@ const CLICK_SLOP_PX = 6;
 const COLOR_BG = 0x07090c;
 const COLOR_AXIS = 0x39424f;
 const COLOR_FRAME = 0x161b22;
-const COLOR_ACCENT = 0x49e8c2;
-const COLOR_PENDING = 0x49e8c2;
+const COLOR_ACCENT = 0xffffff;
+const COLOR_PENDING = 0xffffff;
 const COLOR_GENERATING = 0xffb454;
 const COLOR_ERROR = 0xff5c5c;
 
@@ -94,7 +94,6 @@ function makeLabelSprite(text: string, opts?: { dim?: boolean }): THREE.Sprite {
 /** Image drawn into a square canvas with a sharp 1-px-style frame. */
 function makeImageTexture(
   imageUrl: string,
-  frameColor: string,
   onReady: (texture: THREE.Texture) => void
 ) {
   const img = new Image();
@@ -104,10 +103,7 @@ function makeImageTexture(
     canvas.width = size;
     canvas.height = size;
     const ctx = canvas.getContext("2d")!;
-    ctx.fillStyle = frameColor;
-    ctx.fillRect(0, 0, size, size);
-    const inset = 4;
-    ctx.drawImage(img, inset, inset, size - inset * 2, size - inset * 2);
+    ctx.drawImage(img, 0, 0, size, size);
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     onReady(texture);
@@ -222,14 +218,31 @@ export function VibeScene(props: VibeSceneProps) {
 
     // Glowing origin point for initial prompt.
     const originMarkerGroup = new THREE.Group();
-    const geom = new THREE.SphereGeometry(0.12, 16, 16);
-    const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 });
-    const originMesh = new THREE.Mesh(geom, mat);
-    originMarkerGroup.add(originMesh);
-    const ringGeom = new THREE.RingGeometry(0.2, 0.23, 32);
-    const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4, side: THREE.DoubleSide });
-    const originRing = new THREE.Mesh(ringGeom, ringMat);
-    originMarkerGroup.add(originRing);
+    
+    const canvas = document.createElement("canvas");
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext("2d")!;
+    const gradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gradient.addColorStop(0, "rgba(255, 255, 255, 1.0)");
+    gradient.addColorStop(0.08, "rgba(255, 255, 255, 0.9)");
+    gradient.addColorStop(0.2, "rgba(255, 255, 255, 0.35)");
+    gradient.addColorStop(0.5, "rgba(255, 255, 255, 0.08)");
+    gradient.addColorStop(1, "rgba(255, 255, 255, 0.0)");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 128, 128);
+    const texture = new THREE.CanvasTexture(canvas);
+
+    const glowMat = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
+    const glowSprite = new THREE.Sprite(glowMat);
+    glowSprite.scale.set(0.4, 0.4, 1);
+    originMarkerGroup.add(glowSprite);
+
+    const coreMat = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false, opacity: 0.95 });
+    const coreSprite = new THREE.Sprite(coreMat);
+    coreSprite.scale.set(0.12, 0.12, 1);
+    originMarkerGroup.add(coreSprite);
+
     scene.add(originMarkerGroup);
     originMarkerRef.current = originMarkerGroup;
 
@@ -391,9 +404,9 @@ export function VibeScene(props: VibeSceneProps) {
         const hasPoints = propsNow.points.length > 0;
         originMarkerRef.current.visible = !hasPoints;
         if (!hasPoints) {
-          const t = Date.now() / 400;
-          originMarkerRef.current.children[1].scale.setScalar(1.0 + Math.sin(t) * 0.15);
-          originMarkerRef.current.children[1].lookAt(camera.position);
+          const t = Date.now() / 800;
+          const pulseScale = 0.4 + Math.sin(t) * 0.06;
+          originMarkerRef.current.children[0].scale.setScalar(pulseScale);
         }
       }
 
@@ -409,7 +422,8 @@ export function VibeScene(props: VibeSceneProps) {
 
       entries.forEach((entry, id) => {
         let targetScale = SPRITE_SIZE;
-        const isOrigin = propsNow.points.find(p => p.id === id)?.isOrigin;
+        const point = propsNow.points.find(p => p.id === id);
+        const isOrigin = point?.isOrigin;
         const baseSize = isOrigin ? SPRITE_SIZE * 1.25 : SPRITE_SIZE;
 
         if (id === selectedId) {
@@ -434,6 +448,20 @@ export function VibeScene(props: VibeSceneProps) {
         const currentScale = entry.sprite.scale.x;
         const nextScale = THREE.MathUtils.lerp(currentScale, targetScale, 0.15);
         entry.sprite.scale.set(nextScale, nextScale, 1);
+
+        // Smoothly fade out non-selected points
+        let targetOpacity = 1.0;
+        if (point?.status !== "ready") {
+          targetOpacity = 0.35;
+        } else if (selectedId && id !== selectedId) {
+          targetOpacity = 0.4;
+        }
+        
+        entry.sprite.material.opacity = THREE.MathUtils.lerp(
+          entry.sprite.material.opacity,
+          targetOpacity,
+          0.15
+        );
       });
 
       renderer.render(scene, camera);
@@ -567,9 +595,7 @@ export function VibeScene(props: VibeSceneProps) {
     for (const point of props.points) {
       seen.add(point.id);
       const isSelected = point.id === props.selectedPointId;
-      const key = `${point.status}|${point.imageUrl ? "img" : "none"}|${
-        isSelected ? "sel" : ""
-      }|${point.isOrigin ? "origin" : ""}`;
+      const key = `${point.status}|${point.imageUrl ? "img" : "none"}|${point.isOrigin ? "origin" : ""}`;
       let entry = entries.get(point.id);
 
       if (entry && entry.key !== key) {
@@ -595,12 +621,7 @@ export function VibeScene(props: VibeSceneProps) {
         group.add(sprite);
 
         if (point.status === "ready" && point.imageUrl) {
-          const frameColor = isSelected
-            ? "#49e8c2"
-            : point.isOrigin
-            ? "#d6dee8"
-            : "#39424f";
-          makeImageTexture(point.imageUrl, frameColor, (texture) => {
+          makeImageTexture(point.imageUrl, (texture) => {
             material.map = texture;
             material.color.set(0xffffff);
             material.needsUpdate = true;

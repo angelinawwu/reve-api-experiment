@@ -261,8 +261,8 @@ export function ControlPanel(props: ControlPanelProps) {
               const v = axisValue(props.selectedPoint!.coordinate, axis.id);
               return (
                 <div className="coord-row" key={axis.id}>
-                  <span className="coord-label">
-                    {axis.positivePole}/{axis.negativePole}
+                  <span className="coord-pole coord-pole-left">
+                    {axis.negativePole}
                   </span>
                   <input
                     type="range"
@@ -280,6 +280,9 @@ export function ControlPanel(props: ControlPanelProps) {
                       )
                     }
                   />
+                  <span className="coord-pole coord-pole-right">
+                    {axis.positivePole}
+                  </span>
                   <span className="coord-value">
                     {v >= 0 ? "+" : ""}
                     {v.toFixed(2)}
