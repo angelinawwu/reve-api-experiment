@@ -1,30 +1,36 @@
 export type AxisId = string;
 
+/** axisId -> value in [-1, 1]. Sparse: a missing axis means 0. */
+export type Coordinate = Partial<Record<AxisId, number>>;
+
 export interface Axis {
   id: AxisId;
   positivePole: string;
   negativePole: string;
-  createdAt: number;
+  source: "default" | "manual";
 }
 
-export interface VibeSpace {
+export type PointStatus = "generating" | "ready" | "error";
+
+export interface VibePoint {
   id: string;
-  subjectPrompt: string;
-  baseImageUrl: string;
-  axes: Axis[];
-}
-
-export type Coordinate = Partial<Record<AxisId, number>>;
-
-export interface GridCell {
   coordinate: Coordinate;
   imageUrl: string | null;
-  status: "empty" | "generating" | "ready" | "error";
+  status: PointStatus;
+  isOrigin: boolean;
+  error?: string;
 }
 
-export interface SliceView {
-  xAxisId: AxisId;
-  yAxisId: AxisId;
-  resolution: number;
-  heldConstant: Coordinate;
+export type SliceAxisIds = [AxisId, AxisId] | [AxisId, AxisId, AxisId];
+
+export type InteractionMode = "click" | "walk";
+
+export interface ViewState {
+  activeAxisIds: SliceAxisIds;
+  mode: InteractionMode;
+}
+
+/** A coordinate awaiting user confirmation before generation (click mode). */
+export interface PendingPlacement {
+  coordinate: Coordinate;
 }
