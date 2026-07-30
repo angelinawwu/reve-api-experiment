@@ -117,6 +117,7 @@ export function RadialGizmo({
 }: RadialGizmoProps) {
   const inactiveAxes = axes.filter((a) => !activeAxisIds.includes(a.id));
   const chunks = chunkAxes(inactiveAxes);
+  const hasGizmo = inactiveAxes.length > 0;
 
   // Block clicks from passing through the gizmo actions back to the ThreeJS canvas
   const blockEvents = (e: React.MouseEvent | React.PointerEvent) => {
@@ -124,7 +125,12 @@ export function RadialGizmo({
   };
 
   return (
-    <div className="radial-gizmo-wrapper" onPointerDown={blockEvents}>
+    <div
+      className={`radial-gizmo-wrapper ${
+        !hasGizmo ? "no-gizmo" : ""
+      } animate-[gizmo-enter_0.4s_cubic-bezier(0.19,1,0.22,1)_both]`}
+      onPointerDown={blockEvents}
+    >
       <div className="gizmo-hubs-container" style={{ position: "relative" }}>
         {chunks.map((chunk, chunkIdx) => {
           const offsetX = chunkIdx * 160;

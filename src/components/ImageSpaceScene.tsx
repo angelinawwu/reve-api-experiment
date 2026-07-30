@@ -9,7 +9,7 @@ import {
   Coordinate,
   InteractionMode,
   SliceAxisIds,
-  VibePoint,
+  ImagePoint,
 } from "@/lib/types";
 import { axisValue, normalizeCoord } from "@/lib/space";
 import { RadialGizmo } from "./RadialGizmo";
@@ -28,10 +28,10 @@ const COLOR_PENDING = 0xffffff;
 const COLOR_GENERATING = 0xffb454;
 const COLOR_ERROR = 0xff5c5c;
 
-interface VibeSceneProps {
+interface ImageSpaceSceneProps {
   axes: Axis[];
   activeAxisIds: SliceAxisIds;
-  points: VibePoint[];
+  points: ImagePoint[];
   mode: InteractionMode;
   pendingCoordinate: Coordinate | null;
   selectedPointId: string | null;
@@ -121,7 +121,7 @@ interface PointEntry {
   key: string;
 }
 
-export function VibeScene(props: VibeSceneProps) {
+export function ImageSpaceScene(props: ImageSpaceSceneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const propsRef = useRef(props);
   propsRef.current = props;
@@ -139,6 +139,7 @@ export function VibeScene(props: VibeSceneProps) {
   const cursorCoordRef = useRef<Coordinate | null>(null);
   const hoveredPointIdRef = useRef<string | null>(null);
   const gizmoOverlayRef = useRef<HTMLDivElement>(null);
+  const selectedPointOverlayRef = useRef<HTMLDivElement>(null);
 
   // ---- one-time scene setup -------------------------------------------------
   useEffect(() => {
@@ -421,6 +422,25 @@ export function VibeScene(props: VibeSceneProps) {
         }
       }
 
+      const selectedOverlay = selectedPointOverlayRef.current;
+      if (selectedOverlay && container) {
+        const selectedPoint = propsNow.points.find(p => p.id === propsNow.selectedPointId);
+        const targetCoord = propsNow.pendingCoordinate || selectedPoint?.coordinate;
+        if (targetCoord) {
+          selectedOverlay.style.display = "block";
+          const worldPos = coordToWorld(targetCoord, propsNow.activeAxisIds);
+          // Project the 3D position to screen space
+          worldPos.project(camera);
+          const w = container.clientWidth;
+          const h = container.clientHeight;
+          const x = (worldPos.x * 0.5 + 0.5) * w;
+          const y = (-(worldPos.y * 0.5) + 0.5) * h;
+          selectedOverlay.style.transform = `translate(${x}px, ${y}px)`;
+        } else {
+          selectedOverlay.style.display = "none";
+        }
+      }
+
       if (originMarkerRef.current) {
         const hasPoints = propsNow.points.length > 0;
         originMarkerRef.current.visible = !hasPoints;
@@ -672,6 +692,18 @@ export function VibeScene(props: VibeSceneProps) {
 
 
 
+  const selectedPoint = props.points.find((p) => p.id === props.selectedPointId);
+  const targetCoord = props.pendingCoordinate || selectedPoint?.coordinate;
+  let tooltipTitle = "SELECTED";
+  if (props.pendingCoordinate) {
+    tooltipTitle = "NEW POINT";
+  } else if (selectedPoint?.isOrigin) {
+    tooltipTitle = "ORIGIN";
+  }
+  const inactiveAxes = props.axes.filter((a) => !props.activeAxisIds.includes(a.id));
+  const hasGizmo = inactiveAxes.length > 0;
+  const showGizmoOffset = props.pendingCoordinate && hasGizmo;
+
   return (
     <>
       <div ref={containerRef} className="scene-container" />
@@ -689,6 +721,45 @@ export function VibeScene(props: VibeSceneProps) {
             onConfirm={props.onConfirmPending!}
             onCancel={props.onCancelPending!}
           />
+        )}
+      </div>
+      <div
+        ref={selectedPointOverlayRef}
+        className="selected-point-overlay"
+        style={{ display: "none" }}
+      >
+        {targetCoord && (
+          <div className={`selected-point-tooltip${showGizmoOffset ? " has-gizmo" : ""}`}>
+            <div className="tooltip-title">
+              {tooltipTitle}
+            </div>
+            <div className="tooltip-coords">
+              {props.axes.map((axis) => {
+                const v = axisValue(targetCoord, axis.id);
+                const isActive = props.activeAxisIds.includes(axis.id);
+                let poleLabel = "";
+                if (v > 0) {
+                  poleLabel = axis.positivePole;
+                } else if (v < 0) {
+                  poleLabel = axis.negativePole;
+                } else {
+                  poleLabel = `${axis.negativePole}/${axis.positivePole}`;
+                }
+                return (
+                  <div
+                    key={axis.id}
+                    className={`tooltip-row ${isActive ? "active" : ""}`}
+                  >
+                    <span className="tooltip-pole">{poleLabel}</span>
+                    <span className="tooltip-value">
+                      {v > 0 ? "+" : ""}
+                      {v.toFixed(2)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         )}
       </div>
     </>

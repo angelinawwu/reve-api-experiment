@@ -1,4 +1,4 @@
-# N-Dimensional Vibe Space — Product & Build Spec
+# N-Dimensional ImageSpace — Product & Build Spec
 
 ## 1. Concept, one paragraph
 
@@ -27,7 +27,7 @@ interface Axis {
   createdAt: number;
 }
 
-interface VibeSpace {
+interface ImageSpace {
   id: string;
   subjectPrompt: string;      // text description of the base subject
   baseImageUrl: string;       // Reve Create output, the origin (0,0,0,...)
@@ -55,7 +55,7 @@ interface SliceView {
 `SliceView` is the whole trick: it's a projection spec. `xAxisId`/`yAxisId` pick the
 2D subspace; `heldConstant` is where every other axis gets frozen (usually all zero).
 Switching which two axes you're looking at is just re-instantiating `SliceView` —
-no change to `VibeSpace` itself.
+no change to `ImageSpace` itself.
 
 ---
 
@@ -71,7 +71,7 @@ no change to `VibeSpace` itself.
    `baseImageUrl` (see prompt construction below). Cells fill in as calls resolve —
    don't block the whole grid on the slowest cell.
 5. **Switch slice.** User picks two different axes → new `SliceView`, same
-   `VibeSpace`. Previously generated cells for other slices stay cached in case the
+   `ImageSpace`. Previously generated cells for other slices stay cached in case the
    user comes back.
 6. **Add an axis mid-session.** Appends to `axes[]`. Nothing regenerates until the
    user actually views a slice that includes the new axis.
@@ -93,7 +93,7 @@ function intensityWord(value: number): string {
   return "extremely";
 }
 
-function buildEditPrompt(space: VibeSpace, coord: Coordinate): string {
+function buildEditPrompt(space: ImageSpace, coord: Coordinate): string {
   const clauses = space.axes
     .map(axis => {
       const v = coord[axis.id] ?? 0;
@@ -127,7 +127,7 @@ docs before wiring this up** — the shape below is the common pattern across
 Reve's ecosystem, not a guaranteed-exact schema:
 
 ```typescript
-// Step 1 — origin image, called once per VibeSpace
+// Step 1 — origin image, called once per ImageSpace
 async function createBaseImage(subjectPrompt: string): Promise<string> {
   const res = await fetch("https://api.reve.com/v1/image/create", {
     method: "POST",
@@ -164,23 +164,24 @@ async function generateCell(baseImageUrl: string, prompt: string): Promise<strin
 ## 6. Frontend components
 
 ```
-<VibeSpaceApp>
+<ImageSpaceApp>
   <SubjectPicker />              // sets subjectPrompt, triggers Create
   <AxisManager axes={axes} />    // add/remove/rename axes
   <SlicePicker                   // choose xAxisId, yAxisId, resolution
     axes={axes}
     onChange={setSliceView}
   />
-  <VibeGrid
-    sliceView={sliceView}
-    cells={cellsForSlice}        // derived, cached by coordinate hash
+  <ImageSpaceGrid
+    slice={{ x: "axis-good-evil", y: "axis-lawful-chaotic" }}
+    axes={axes}
+    points={points}
   >
     <GridCell status="ready|generating|empty" imageUrl={...} />
-  </VibeGrid>
-</VibeSpaceApp>
+  </ImageSpaceGrid>
+</ImageSpaceApp>
 ```
 
-`VibeGrid` should compute the full set of coordinates for the current slice up
+`ImageSpaceGrid` should compute the full set of coordinates for the current slice up
 front (deterministic from `resolution` + `heldConstant`), diff against the cache,
 and only issue Edit calls for the missing cells.
 

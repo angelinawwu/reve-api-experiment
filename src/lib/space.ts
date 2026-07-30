@@ -1,4 +1,4 @@
-import { Axis, AxisId, Coordinate, VibePoint } from "./types";
+import { Axis, AxisId, Coordinate, ImagePoint } from "./types";
 
 /** Cache-hit tolerance across the full coordinate vector. */
 export const CACHE_EPSILON = 0.03;
@@ -43,11 +43,11 @@ export function hashCoord(coord: Coordinate): string {
  * or null. This is what makes continuous placement affordable.
  */
 export function findCachedPoint(
-  points: VibePoint[],
+  points: ImagePoint[],
   target: Coordinate,
   epsilon: number = CACHE_EPSILON
-): VibePoint | null {
-  let best: VibePoint | null = null;
+): ImagePoint | null {
+  let best: ImagePoint | null = null;
   let bestDist = Infinity;
   for (const p of points) {
     if (p.status !== "ready" || !p.imageUrl) continue;
@@ -65,10 +65,10 @@ export function findCachedPoint(
  * origin if nothing else is closer.
  */
 export function findNearestReference(
-  points: VibePoint[],
+  points: ImagePoint[],
   target: Coordinate
-): VibePoint | null {
-  let best: VibePoint | null = null;
+): ImagePoint | null {
+  let best: ImagePoint | null = null;
   let bestDist = Infinity;
   for (const p of points) {
     if (p.status !== "ready" || !p.imageUrl) continue;

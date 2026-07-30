@@ -1,4 +1,4 @@
-# Vibe Space — Final Version Build Prompt
+# ImageSpace — Final Version Build Prompt
 
 I'm using the Reve API to generate images along abstract qualitative axes (e.g.
 `whimsy ↔ glumness`, `fish ↔ cat`, `hot ↔ stupid`). I have a working v1 (discrete
@@ -6,7 +6,7 @@ grid). This is the final version — a single-page, continuous, 3D-navigable ver
 
 ## Core interaction model
 
-**Point** = an image generated at a specific coordinate in the vibe space.
+**Point** = an image generated at a specific coordinate in the imagespace.
 **Dimension (axis)** = a named pair of poles (e.g. `naughty ↔ nice`) that defines
 one scale points can be placed on. Adding a dimension never generates an image —
 it just adds a new coordinate that all existing and future points can be positioned

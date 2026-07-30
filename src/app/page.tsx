@@ -19,11 +19,11 @@ import {
   Coordinate,
   InteractionMode,
   SliceAxisIds,
-  VibePoint,
+  ImagePoint,
 } from "@/lib/types";
 
-const VibeScene = dynamic(
-  () => import("@/components/VibeScene").then((m) => m.VibeScene),
+const ImageSpaceScene = dynamic(
+  () => import("@/components/ImageSpaceScene").then((m) => m.ImageSpaceScene),
   { ssr: false }
 );
 
@@ -34,7 +34,7 @@ const DEFAULT_AXES: Axis[] = [
 
 export default function Home() {
   const [axes, setAxes] = useState<Axis[]>(DEFAULT_AXES);
-  const [points, setPoints] = useState<VibePoint[]>([]);
+  const [points, setPoints] = useState<ImagePoint[]>([]);
   const [activeAxisIds, setActiveAxisIds] = useState<SliceAxisIds | null>([DEFAULT_AXES[0].id, DEFAULT_AXES[1].id]);
   const [mode, setMode] = useState<InteractionMode>("click");
   const [pendingCoordinate, setPendingCoordinate] = useState<Coordinate | null>(null);
@@ -44,7 +44,7 @@ export default function Home() {
   const [creating, setCreating] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
 
-  const pointsRef = useRef<VibePoint[]>(points);
+  const pointsRef = useRef<ImagePoint[]>(points);
   pointsRef.current = points;
   const axesRef = useRef<Axis[]>(axes);
   axesRef.current = axes;
@@ -57,7 +57,7 @@ export default function Home() {
     setGlobalError(null);
     try {
       const url = await createOriginImage(prompt.trim());
-      const origin: VibePoint = {
+      const origin: ImagePoint = {
         id: makeId("pt"),
         coordinate: {},
         imageUrl: url,
@@ -96,7 +96,7 @@ export default function Home() {
     );
 
     const id = makeId("pt");
-    const placeholder: VibePoint = {
+    const placeholder: ImagePoint = {
       id,
       coordinate: coord,
       imageUrl: null,
@@ -118,10 +118,10 @@ export default function Home() {
         prev.map((p) =>
           p.id === id
             ? {
-                ...p,
-                status: "error" as const,
-                error: err instanceof Error ? err.message : "Remix failed",
-              }
+              ...p,
+              status: "error" as const,
+              error: err instanceof Error ? err.message : "Remix failed",
+            }
             : p
         )
       );
@@ -205,9 +205,9 @@ export default function Home() {
       prev.map((p) =>
         p.id === pointId
           ? {
-              ...p,
-              coordinate: normalizeCoord({ ...p.coordinate, [axisId]: value }),
-            }
+            ...p,
+            coordinate: normalizeCoord({ ...p.coordinate, [axisId]: value }),
+          }
           : p
       )
     );
@@ -249,7 +249,7 @@ export default function Home() {
       />
 
       <div className="viewport">
-        <VibeScene
+        <ImageSpaceScene
           axes={axes}
           activeAxisIds={activeAxisIds!}
           points={points}
@@ -266,14 +266,14 @@ export default function Home() {
         />
 
         {points.length === 0 && (
-          <div className="origin-prompt-card">
+          <div className="origin-prompt-card animate-[prompt-enter_0.6s_cubic-bezier(0.19,1,0.22,1)_both]">
             <h2>DEFINE THE ORIGIN</h2>
             <p>
               One image anchors the space at coordinate zero. Every other point is a remix of it.
             </p>
             <form onSubmit={handleCreateOrigin}>
               <input
-                className="field"
+                className="field bg-[#0a0a0a]"
                 placeholder="a taxidermied crow wearing a tiny crown"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
@@ -288,7 +288,7 @@ export default function Home() {
                 {creating ? "GENERATING…" : "GENERATE ORIGIN"}
               </button>
             </form>
-            {globalError && <p className="error-text">{globalError}</p>}
+            {globalError && <p className="mt-4 text-xs text-red-500">{globalError}</p>}
           </div>
         )}
 
@@ -301,7 +301,7 @@ export default function Home() {
 
         {/* Generation status */}
         {generatingCount > 0 && (
-          <div className="hud-status">
+          <div className="absolute top-4 right-4 animate-pulse border border-[#ffb454] bg-[#07090c]/82 px-3 py-2 text-[11px] tracking-[0.14em] text-[#ffb454]">
             GENERATING {generatingCount} POINT{generatingCount > 1 ? "S" : ""}…
           </div>
         )}

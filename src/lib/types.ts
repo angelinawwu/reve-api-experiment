@@ -12,7 +12,7 @@ export interface Axis {
 
 export type PointStatus = "generating" | "ready" | "error";
 
-export interface VibePoint {
+export interface ImagePoint {
   id: string;
   coordinate: Coordinate;
   imageUrl: string | null;

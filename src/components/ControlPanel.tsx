@@ -1,12 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
+import { Eye, EyeClosed, Pencil, Trash } from "@phosphor-icons/react";
+import { ImageGeneration } from "img-fx";
 import {
   Axis,
   AxisId,
   InteractionMode,
   SliceAxisIds,
-  VibePoint,
+  ImagePoint,
 } from "@/lib/types";
 import { axisValue } from "@/lib/space";
 
@@ -14,8 +16,8 @@ interface ControlPanelProps {
   axes: Axis[];
   activeAxisIds: SliceAxisIds;
   mode: InteractionMode;
-  points: VibePoint[];
-  selectedPoint: VibePoint | null;
+  points: ImagePoint[];
+  selectedPoint: ImagePoint | null;
   onAddAxis: (positivePole: string, negativePole: string) => void;
   onRenameAxis: (id: AxisId, positivePole: string, negativePole: string) => void;
   onRemoveAxis: (id: AxisId) => void;
@@ -25,15 +27,21 @@ interface ControlPanelProps {
   onDeletePoint: (pointId: string) => void;
 }
 
-const SLOT_LABELS = ["X", "Y", "Z"] as const;
-
 function AxisRow({
   axis,
+  isActive,
+  canToggleOn,
+  canToggleOff,
+  onToggle,
   onRename,
   onRemove,
   removable,
 }: {
   axis: Axis;
+  isActive: boolean;
+  canToggleOn: boolean;
+  canToggleOff: boolean;
+  onToggle: () => void;
   onRename: (pos: string, neg: string) => void;
   onRemove: () => void;
   removable: boolean;
@@ -45,7 +53,7 @@ function AxisRow({
   if (editing) {
     return (
       <form
-        className="axis-row axis-row-editing"
+        className="axis-row axis-row-editing bg-[#0a0a0a]"
         onSubmit={(e) => {
           e.preventDefault();
           if (pos.trim() && neg.trim()) {
@@ -55,14 +63,14 @@ function AxisRow({
         }}
       >
         <input
-          className="field field-compact"
+          className="field field-compact bg-[#0a0a0a]"
           value={neg}
           onChange={(e) => setNeg(e.target.value)}
           aria-label="Negative pole"
         />
         <span className="axis-sep">/</span>
         <input
-          className="field field-compact"
+          className="field field-compact bg-[#0a0a0a]"
           value={pos}
           onChange={(e) => setPos(e.target.value)}
           aria-label="Positive pole"
@@ -75,32 +83,41 @@ function AxisRow({
   }
 
   return (
-    <div className="axis-row">
+    <div className="axis-row bg-[#0a0a0a]">
       <span className="axis-name">
         {axis.negativePole}
         <span className="axis-sep">/</span>
         {axis.positivePole}
       </span>
-      {axis.source === "default" && <span className="axis-tag">DEF</span>}
-      <button
-        className="btn-ghost"
-        onClick={() => {
-          setPos(axis.positivePole);
-          setNeg(axis.negativePole);
-          setEditing(true);
-        }}
-        title="Rename"
-      >
-        EDIT
-      </button>
-      <button
-        className="btn-ghost btn-danger"
-        onClick={onRemove}
-        disabled={!removable}
-        title={removable ? "Delete dimension" : "At least 2 dimensions required"}
-      >
-        DEL
-      </button>
+      <div style={{ marginLeft: "auto", display: "flex", gap: "2px" }}>
+        <button
+          className="btn-ghost btn-icon"
+          onClick={onToggle}
+          disabled={isActive ? !canToggleOff : !canToggleOn}
+          title={isActive ? (canToggleOff ? "Hide dimension" : "At least 2 dimensions must be visible") : (canToggleOn ? "Show dimension" : "Maximum of 3 dimensions can be visible")}
+        >
+          {isActive ? <Eye size={16} /> : <EyeClosed size={16} />}
+        </button>
+        <button
+          className="btn-ghost btn-icon"
+          onClick={() => {
+            setPos(axis.positivePole);
+            setNeg(axis.negativePole);
+            setEditing(true);
+          }}
+          title="Rename"
+        >
+          <Pencil size={16} />
+        </button>
+        <button
+          className="btn-ghost btn-icon text-red-500 hover:border-red-500 hover:text-red-500"
+          onClick={onRemove}
+          disabled={!removable}
+          title={removable ? "Delete dimension" : "At least 2 dimensions required"}
+        >
+          <Trash size={16} />
+        </button>
+      </div>
     </div>
   );
 }
@@ -110,31 +127,31 @@ export function ControlPanel(props: ControlPanelProps) {
   const [newNeg, setNewNeg] = useState("");
   const is3D = props.activeAxisIds.length === 3;
 
-  const handleSlotChange = (slot: number, value: string) => {
-    const current: (AxisId | null)[] = [
-      props.activeAxisIds[0],
-      props.activeAxisIds[1],
-      props.activeAxisIds.length === 3 ? props.activeAxisIds[2] : null,
-    ];
-    current[slot] = value === "" ? null : value;
-    // De-duplicate: a given axis can only occupy one slot.
-    for (let i = 0; i < 3; i++) {
-      if (i !== slot && current[i] === value && value !== "") current[i] = null;
-    }
-    const filled = current.filter((id): id is AxisId => id !== null);
-    if (filled.length >= 2) {
+  const handleToggleAxis = (axisId: AxisId) => {
+    const isActive = props.activeAxisIds.includes(axisId);
+    if (isActive) {
+      if (props.activeAxisIds.length <= 2) return;
+      const newSlice = props.activeAxisIds.filter((id) => id !== axisId);
       props.onChangeSlice(
-        filled.length >= 3
-          ? [filled[0], filled[1], filled[2]]
-          : [filled[0], filled[1]]
+        newSlice.length === 3
+          ? [newSlice[0], newSlice[1], newSlice[2]]
+          : [newSlice[0], newSlice[1]]
+      );
+    } else {
+      if (props.activeAxisIds.length >= 3) return;
+      const newSlice = [...props.activeAxisIds, axisId];
+      props.onChangeSlice(
+        newSlice.length === 3
+          ? [newSlice[0], newSlice[1], newSlice[2]]
+          : [newSlice[0], newSlice[1]]
       );
     }
   };
 
   return (
-    <aside className="panel">
+    <aside className="panel bg-[#121212]">
       <header className="panel-header">
-        <h1 className="panel-title">VIBE SPACE</h1>
+        <h1 className="panel-title">IMAGESPACE</h1>
         <span className="panel-meta">
           {props.axes.length}D · {props.points.length} PT
         </span>
@@ -145,13 +162,13 @@ export function ControlPanel(props: ControlPanelProps) {
         <h2 className="section-label">MODE</h2>
         <div className="segmented">
           <button
-            className={props.mode === "click" ? "seg active" : "seg"}
+            className={`seg ${props.mode === "click" ? "bg-white/12 text-white" : ""}`}
             onClick={() => props.onChangeMode("click")}
           >
             CLICK
           </button>
           <button
-            className={props.mode === "walk" ? "seg active" : "seg"}
+            className={`seg ${props.mode === "walk" ? "bg-white/12 text-white" : ""}`}
             onClick={() => props.onChangeMode("walk")}
           >
             WALK
@@ -166,46 +183,28 @@ export function ControlPanel(props: ControlPanelProps) {
         </p>
       </section>
 
-      {/* Slice */}
-      <section className="panel-section">
-        <h2 className="section-label">ACTIVE SLICE</h2>
-        {SLOT_LABELS.map((label, i) => {
-          const value =
-            i < props.activeAxisIds.length ? props.activeAxisIds[i] : "";
-          return (
-            <div className="slice-row" key={label}>
-              <span className="slice-slot">{label}</span>
-              <select
-                className="field field-select"
-                value={value}
-                onChange={(e) => handleSlotChange(i, e.target.value)}
-              >
-                {i === 2 && <option value="">— (2D plane)</option>}
-                {props.axes.map((axis) => (
-                  <option key={axis.id} value={axis.id}>
-                    {axis.negativePole} / {axis.positivePole}
-                  </option>
-                ))}
-              </select>
-            </div>
-          );
-        })}
-        <p className="hint">All other dimensions are held at 0.</p>
-      </section>
-
       {/* Dimensions */}
       <section className="panel-section">
         <h2 className="section-label">DIMENSIONS</h2>
         <div className="axis-list">
-          {props.axes.map((axis) => (
-            <AxisRow
-              key={axis.id}
-              axis={axis}
-              removable={props.axes.length > 2}
-              onRename={(pos, neg) => props.onRenameAxis(axis.id, pos, neg)}
-              onRemove={() => props.onRemoveAxis(axis.id)}
-            />
-          ))}
+          {props.axes.map((axis) => {
+            const isActive = props.activeAxisIds.includes(axis.id);
+            const canToggleOn = props.activeAxisIds.length < 3;
+            const canToggleOff = props.activeAxisIds.length > 2;
+            return (
+              <AxisRow
+                key={axis.id}
+                axis={axis}
+                isActive={isActive}
+                canToggleOn={canToggleOn}
+                canToggleOff={canToggleOff}
+                onToggle={() => handleToggleAxis(axis.id)}
+                removable={props.axes.length > 2}
+                onRename={(pos, neg) => props.onRenameAxis(axis.id, pos, neg)}
+                onRemove={() => props.onRemoveAxis(axis.id)}
+              />
+            );
+          })}
         </div>
         <form
           className="axis-add"
@@ -219,14 +218,14 @@ export function ControlPanel(props: ControlPanelProps) {
           }}
         >
           <input
-            className="field field-compact"
+            className="field field-compact bg-[#0a0a0a]"
             placeholder="negative pole"
             value={newNeg}
             onChange={(e) => setNewNeg(e.target.value)}
           />
           <span className="axis-sep">/</span>
           <input
-            className="field field-compact"
+            className="field field-compact bg-[#0a0a0a]"
             placeholder="positive pole"
             value={newPos}
             onChange={(e) => setNewPos(e.target.value)}
@@ -248,14 +247,26 @@ export function ControlPanel(props: ControlPanelProps) {
           <h2 className="section-label">
             {props.selectedPoint.isOrigin ? "ORIGIN POINT" : "POINT"}
           </h2>
-          {props.selectedPoint.imageUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              className="inspector-image"
-              src={props.selectedPoint.imageUrl}
-              alt="Selected point"
-            />
-          )}
+          <div className="inspector-image-container relative mb-4">
+            <ImageGeneration
+              preset="sweep-gradient"
+              images={props.selectedPoint.imageUrl ? [props.selectedPoint.imageUrl] : []}
+              autoReveal={true}
+            >
+              {props.selectedPoint.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  className="inspector-image w-full h-auto block rounded-lg bg-frame"
+                  src={props.selectedPoint.imageUrl}
+                  alt="Selected point"
+                />
+              ) : (
+                <div
+                  className="inspector-image w-full aspect-square rounded-lg bg-frame"
+                />
+              )}
+            </ImageGeneration>
+          </div>
           <div className="inspector-coords">
             {props.axes.map((axis) => {
               const v = axisValue(props.selectedPoint!.coordinate, axis.id);
@@ -296,11 +307,10 @@ export function ControlPanel(props: ControlPanelProps) {
           ) : (
             <>
               <p className="hint">
-                Repositioning moves the point&apos;s metadata only — no
-                regeneration.
+                Repositioning calibrates the point&apos;s metadata only. The point is not regenerated.
               </p>
               <button
-                className="btn-ghost btn-danger"
+                className="btn-ghost text-red-500 hover:border-red-500 hover:text-red-500"
                 onClick={() => props.onDeletePoint(props.selectedPoint!.id)}
               >
                 DELETE POINT

@@ -1,19 +1,13 @@
+@import "tailwindcss";
+
 :root {
   --bg: #050505;
-  --bg-raised: #121212;
-  --bg-inset: #0a0a0a;
   --border: #262626;
   --border-strong: #404040;
   --text: #f5f5f5;
   --text-dim: #a3a3a3;
   --text-faint: #737373;
   --accent: #ffffff;
-  --accent-dim: rgba(255, 255, 255, 0.12);
-  --warn: #ffb454;
-  --danger: #ef4444;
-
-  --ease-out-quart: cubic-bezier(0.165, 0.84, 0.44, 1);
-  --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
 }
 
 * {
@@ -78,7 +72,6 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  animation: prompt-enter 0.6s var(--ease-out-expo) both;
 }
 
 .origin-prompt-card h2 {
@@ -126,7 +119,6 @@ button:disabled {
 /* ---------- shared fields & buttons ---------- */
 
 .field {
-  background: var(--bg-inset);
   border: 1px solid var(--border);
   color: var(--text);
   padding: 8px 10px;
@@ -187,26 +179,26 @@ button:disabled {
   }
 }
 
-.btn-accent {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-.btn-danger {
-  color: var(--danger);
+.btn-ghost.btn-icon {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: none;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .btn-danger:hover:not(:disabled) {
-    color: var(--danger);
-    border-color: var(--danger);
+  .btn-ghost.btn-icon:hover:not(:disabled) {
+    transition: none;
   }
 }
 
-.error-text {
-  color: var(--danger);
-  margin-top: 16px;
-  font-size: 12px;
+.btn-accent {
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 /* ---------- workspace layout ---------- */
@@ -220,7 +212,6 @@ button:disabled {
 .panel {
   width: 320px;
   flex-shrink: 0;
-  background: var(--bg-raised);
   border-right: 1px solid var(--border);
   overflow-y: auto;
   display: flex;
@@ -286,11 +277,6 @@ button:disabled {
   border-left: 1px solid var(--border);
 }
 
-.seg.active {
-  background: var(--accent-dim);
-  color: var(--accent);
-}
-
 /* ---------- slice picker ---------- */
 
 .slice-row {
@@ -322,7 +308,6 @@ button:disabled {
   gap: 8px;
   padding: 6px 8px;
   border: 1px solid var(--border);
-  background: var(--bg-inset);
 }
 
 .axis-name {
@@ -448,38 +433,13 @@ button:disabled {
   min-width: 220px;
 }
 
-.hud-status {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  color: var(--warn);
-  border: 1px solid var(--warn);
-  background: rgba(7, 9, 12, 0.82);
-  padding: 8px 12px;
-  animation: pulse 1.4s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.45;
-  }
-}
-
 .confirm-card {
   position: absolute;
   left: 50%;
   bottom: 24px;
   transform: translateX(-50%);
-  background: var(--bg-raised);
   border: 1px solid var(--accent);
   padding: 16px 20px;
-  animation: rise-centered 0.25s var(--ease-out-quart) both;
 }
 
 @keyframes rise-centered {
@@ -534,7 +494,6 @@ button:disabled {
   flex-direction: column;
   align-items: center;
   transform: translate(-50%, -50%);
-  animation: gizmo-enter 0.4s var(--ease-out-expo) both;
 }
 
 @keyframes gizmo-enter {
@@ -642,4 +601,111 @@ button:disabled {
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid var(--border-strong);
   padding: 8px 12px;
+}
+
+.radial-gizmo-wrapper.no-gizmo .gizmo-actions {
+  top: 48px;
+}
+
+/* ---------- Selected Point Tooltip ---------- */
+
+.selected-point-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 40;
+}
+
+.selected-point-tooltip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translate(32px, -50%);
+  background: rgba(18, 18, 18, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border-strong);
+  border-left: 2px solid var(--accent);
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 150px;
+  animation: tooltip-enter 0.2s cubic-bezier(.25, .46, .45, .94) both; /* ease-out-quad */
+}
+
+@keyframes tooltip-enter {
+  from {
+    opacity: 0;
+    transform: translate(24px, -50%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(32px, -50%);
+  }
+}
+
+.selected-point-tooltip.has-gizmo {
+  transform: translate(145px, -50%);
+  animation: tooltip-enter-gizmo 0.2s cubic-bezier(.25, .46, .45, .94) both;
+}
+
+@keyframes tooltip-enter-gizmo {
+  from {
+    opacity: 0;
+    transform: translate(130px, -50%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(145px, -50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .selected-point-tooltip,
+  .selected-point-tooltip.has-gizmo {
+    animation: none;
+  }
+}
+
+.tooltip-title {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+.tooltip-coords {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.tooltip-row.active {
+  color: var(--text);
+}
+
+.tooltip-pole {
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px;
+}
+
+.tooltip-value {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
 }
