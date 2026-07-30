@@ -1,59 +1,61 @@
 @import "tailwindcss";
 
-:root {
-  --bg: #050505;
-  --border: #262626;
-  --border-strong: #404040;
-  --text: #f5f5f5;
-  --text-dim: #a3a3a3;
-  --text-faint: #737373;
-  --accent: #ffffff;
-}
+@layer base {
+  :root {
+    --bg: #050505;
+    --border: #262626;
+    --border-strong: #404040;
+    --text: #f5f5f5;
+    --text-dim: #a3a3a3;
+    --text-faint: #737373;
+    --accent: #ffffff;
+  }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  border-radius: 0 !important;
-}
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border-radius: 0 !important;
+  }
 
-html,
-body {
-  height: 100%;
-  overscroll-behavior: none;
-}
+  html,
+  body {
+    height: 100%;
+    overscroll-behavior: none;
+  }
 
-body {
-  font-family: var(--font-plex-mono), "SFMono-Regular", Menlo, monospace;
-  background: var(--bg);
-  color: var(--text);
-  font-size: 13px;
-  line-height: 1.55;
-  -webkit-font-smoothing: antialiased;
-}
+  body {
+    font-family: var(--font-plex-mono), "SFMono-Regular", Menlo, monospace;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
 
-input,
-button,
-select {
-  font-family: inherit;
-  font-size: inherit;
-  color: inherit;
-}
+  input,
+  button,
+  select {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+  }
 
-button {
-  cursor: pointer;
-  border: none;
-  background: none;
-}
+  button {
+    cursor: pointer;
+    border: none;
+    background: none;
+  }
 
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.4;
-}
+  button:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+  }
 
-::selection {
-  background: var(--accent);
-  color: var(--bg);
+  ::selection {
+    background: var(--accent);
+    color: var(--bg);
+  }
 }
 
 /* ---------- origin prompt ---------- */

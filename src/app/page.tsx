@@ -105,6 +105,7 @@ export default function Home() {
     };
     inFlightRef.current.add(hash);
     setPoints((prev) => [...prev, placeholder]);
+    setSelectedPointId(id);
 
     try {
       const url = await remixImage(reference.imageUrl, instruction);

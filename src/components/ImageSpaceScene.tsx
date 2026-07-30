@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { ImageGeneration } from "img-fx";
 import {
   Axis,
   AxisId,
@@ -140,6 +141,7 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
   const hoveredPointIdRef = useRef<string | null>(null);
   const gizmoOverlayRef = useRef<HTMLDivElement>(null);
   const selectedPointOverlayRef = useRef<HTMLDivElement>(null);
+  const generatingOverlaysRef = useRef<HTMLDivElement>(null);
 
   // ---- one-time scene setup -------------------------------------------------
   useEffect(() => {
@@ -456,11 +458,6 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
       const hoveredId = hoveredPointIdRef.current;
       const selectedId = propsNow.selectedPointId;
 
-      let hoveredWorldPos: THREE.Vector3 | null = null;
-      if (hoveredId && entries.has(hoveredId)) {
-        hoveredWorldPos = entries.get(hoveredId)!.group.position;
-      }
-
       entries.forEach((entry, id) => {
         let targetScale = SPRITE_SIZE;
         const point = propsNow.points.find(p => p.id === id);
@@ -471,16 +468,6 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
           targetScale = baseSize * 2.5; // Significantly larger
         } else if (id === hoveredId) {
           targetScale = baseSize * 1.8; // Enlarged on hover
-        } else if (hoveredWorldPos) {
-          const dist = entry.group.position.distanceTo(hoveredWorldPos);
-          const radius = 2.0; // Distance over which scale falls off
-          if (dist < radius) {
-            // Lerp scale based on distance
-            const influence = 1.0 - (dist / radius);
-            targetScale = baseSize + (baseSize * 0.6 * influence); 
-          } else {
-            targetScale = baseSize;
-          }
         } else {
           targetScale = baseSize;
         }
@@ -492,7 +479,9 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
 
         // Smoothly fade out non-selected points
         let targetOpacity = 1.0;
-        if (point?.status !== "ready") {
+        if (point?.status === "generating") {
+          targetOpacity = 0.0; // Hide the sprite, handled by DOM overlay
+        } else if (point?.status !== "ready") {
           targetOpacity = 0.35;
         } else if (selectedId && id !== selectedId) {
           targetOpacity = 0.4;
@@ -503,6 +492,28 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
           targetOpacity,
           0.15
         );
+
+        // Update DOM overlay for generating points
+        if (generatingOverlaysRef.current && point?.status === "generating") {
+          const overlay = generatingOverlaysRef.current.querySelector(
+            `[data-generating-id="${id}"]`
+          ) as HTMLElement;
+          if (overlay && container) {
+            const worldPos = entry.group.position.clone();
+            const distance = camera.position.distanceTo(worldPos);
+            worldPos.project(camera);
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+            const x = (worldPos.x * 0.5 + 0.5) * w;
+            const y = (-(worldPos.y * 0.5) + 0.5) * h;
+            
+            const vFov = 2 * Math.tan((camera.fov * Math.PI) / 360);
+            const screenHeight = (nextScale * h) / (distance * vFov);
+            const cssScale = screenHeight / 128;
+            
+            overlay.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) scale(${cssScale})`;
+          }
+        }
       });
 
       renderer.render(scene, camera);
@@ -722,6 +733,47 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
             onCancel={props.onCancelPending!}
           />
         )}
+      </div>
+      <div
+        ref={generatingOverlaysRef}
+        className="generating-overlays-container"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          pointerEvents: "none",
+          zIndex: 10,
+        }}
+      >
+        {props.points
+          .filter((p) => p.status === "generating")
+          .map((p) => (
+            <div
+              key={p.id}
+              data-generating-id={p.id}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: 128,
+                height: 128,
+                transformOrigin: "center center",
+                willChange: "transform",
+                pointerEvents: "auto",
+                cursor: "pointer",
+              }}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                if (props.onSelectPoint) props.onSelectPoint(p.id);
+              }}
+            >
+              <ImageGeneration preset="sweep-gradient" images={[]} autoReveal={false}>
+                <div style={{ width: "100%", height: "100%", background: "transparent" }} />
+              </ImageGeneration>
+            </div>
+          ))}
       </div>
       <div
         ref={selectedPointOverlayRef}

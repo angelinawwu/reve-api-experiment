@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+@layer utilities {
+  .px-3 { padding: 0.75rem; }
+}
+* { padding: 0; }
+</style>
+</head>
+<body>
+  <div class="px-3" id="test">Hello</div>
+  <script>
+    console.log(window.getComputedStyle(document.getElementById('test')).padding);
+  </script>
+</body>
+</html>
