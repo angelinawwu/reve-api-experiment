@@ -3,7 +3,7 @@
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { ImageGeneration } from "img-fx";
+import { GeneratingLoader } from "./GeneratingLoader";
 import {
   Axis,
   AxisId,
@@ -769,9 +769,7 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
                 if (props.onSelectPoint) props.onSelectPoint(p.id);
               }}
             >
-              <ImageGeneration preset="sweep-gradient" images={[]} autoReveal={false}>
-                <div style={{ width: "100%", height: "100%", background: "transparent" }} />
-              </ImageGeneration>
+              <GeneratingLoader />
             </div>
           ))}
       </div>

@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import { Eye, EyeClosed, Pencil, Trash } from "@phosphor-icons/react";
-import { ImageGeneration } from "img-fx";
 import {
   Axis,
   AxisId,
@@ -248,11 +247,6 @@ export function ControlPanel(props: ControlPanelProps) {
             {props.selectedPoint.isOrigin ? "ORIGIN POINT" : "POINT"}
           </h2>
           <div className="inspector-image-container relative mb-4">
-            <ImageGeneration
-              preset="sweep-gradient"
-              images={props.selectedPoint.imageUrl ? [props.selectedPoint.imageUrl] : []}
-              autoReveal={true}
-            >
               {props.selectedPoint.imageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -265,7 +259,6 @@ export function ControlPanel(props: ControlPanelProps) {
                   className="inspector-image w-full aspect-square rounded-lg bg-frame"
                 />
               )}
-            </ImageGeneration>
           </div>
           <div className="inspector-coords">
             {props.axes.map((axis) => {
