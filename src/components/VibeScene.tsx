@@ -15,7 +15,7 @@ import { axisValue, normalizeCoord } from "@/lib/space";
 
 const WORLD = 2.0; // world units per coordinate unit 1
 const AXIS_OVERHANG = 1.18; // axis lines extend slightly past ±1
-const SPRITE_SIZE = 0.62;
+const SPRITE_SIZE = 0.4;
 const WALK_DEBOUNCE_MS = 200;
 const CLICK_SLOP_PX = 6;
 
@@ -134,6 +134,10 @@ export function VibeScene(props: VibeSceneProps) {
   const pointEntriesRef = useRef<Map<string, PointEntry>>(new Map());
   const pendingMarkerRef = useRef<THREE.Group | null>(null);
   const walkCursorRef = useRef<THREE.Group | null>(null);
+  
+  const originMarkerRef = useRef<THREE.Group | null>(null);
+  const cursorCoordRef = useRef<Coordinate | null>(null);
+  const hoveredPointIdRef = useRef<string | null>(null);
 
   // ---- one-time scene setup -------------------------------------------------
   useEffect(() => {
@@ -216,6 +220,19 @@ export function VibeScene(props: VibeSceneProps) {
     scene.add(walkGroup);
     walkCursorRef.current = walkGroup;
 
+    // Glowing origin point for initial prompt.
+    const originMarkerGroup = new THREE.Group();
+    const geom = new THREE.SphereGeometry(0.12, 16, 16);
+    const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 });
+    const originMesh = new THREE.Mesh(geom, mat);
+    originMarkerGroup.add(originMesh);
+    const ringGeom = new THREE.RingGeometry(0.2, 0.23, 32);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4, side: THREE.DoubleSide });
+    const originRing = new THREE.Mesh(ringGeom, ringMat);
+    originMarkerGroup.add(originRing);
+    scene.add(originMarkerGroup);
+    originMarkerRef.current = originMarkerGroup;
+
     // ---- pointer interaction ----
     const raycaster = new THREE.Raycaster();
     const ndc = new THREE.Vector2();
@@ -286,6 +303,8 @@ export function VibeScene(props: VibeSceneProps) {
     function onPointerMove(e: PointerEvent) {
       const coord = pickCoordinate(e);
       propsRef.current.onCursorCoordinate(coord);
+      cursorCoordRef.current = coord;
+      hoveredPointIdRef.current = pickPoint(e);
 
       const walkCursor = walkCursorRef.current;
       if (walking && coord) {
@@ -338,6 +357,8 @@ export function VibeScene(props: VibeSceneProps) {
 
     function onPointerLeave() {
       propsRef.current.onCursorCoordinate(null);
+      cursorCoordRef.current = null;
+      hoveredPointIdRef.current = null;
     }
 
     const el = renderer.domElement;
@@ -351,6 +372,70 @@ export function VibeScene(props: VibeSceneProps) {
     function tick() {
       raf = requestAnimationFrame(tick);
       controls.update();
+      
+      const propsNow = propsRef.current;
+      const marker = pendingMarkerRef.current;
+      if (marker) {
+        if (propsNow.pendingCoordinate) {
+          marker.visible = true;
+          marker.position.copy(coordToWorld(propsNow.pendingCoordinate, propsNow.activeAxisIds));
+        } else if (cursorCoordRef.current && propsNow.mode === "click") {
+          marker.visible = true;
+          marker.position.copy(coordToWorld(cursorCoordRef.current, propsNow.activeAxisIds));
+        } else {
+          marker.visible = false;
+        }
+      }
+
+      if (originMarkerRef.current) {
+        const hasPoints = propsNow.points.length > 0;
+        originMarkerRef.current.visible = !hasPoints;
+        if (!hasPoints) {
+          const t = Date.now() / 400;
+          originMarkerRef.current.children[1].scale.setScalar(1.0 + Math.sin(t) * 0.15);
+          originMarkerRef.current.children[1].lookAt(camera.position);
+        }
+      }
+
+      // Dynamic spring-based scaling for points
+      const entries = pointEntriesRef.current;
+      const hoveredId = hoveredPointIdRef.current;
+      const selectedId = propsNow.selectedPointId;
+
+      let hoveredWorldPos: THREE.Vector3 | null = null;
+      if (hoveredId && entries.has(hoveredId)) {
+        hoveredWorldPos = entries.get(hoveredId)!.group.position;
+      }
+
+      entries.forEach((entry, id) => {
+        let targetScale = SPRITE_SIZE;
+        const isOrigin = propsNow.points.find(p => p.id === id)?.isOrigin;
+        const baseSize = isOrigin ? SPRITE_SIZE * 1.25 : SPRITE_SIZE;
+
+        if (id === selectedId) {
+          targetScale = baseSize * 2.5; // Significantly larger
+        } else if (id === hoveredId) {
+          targetScale = baseSize * 1.8; // Enlarged on hover
+        } else if (hoveredWorldPos) {
+          const dist = entry.group.position.distanceTo(hoveredWorldPos);
+          const radius = 2.0; // Distance over which scale falls off
+          if (dist < radius) {
+            // Lerp scale based on distance
+            const influence = 1.0 - (dist / radius);
+            targetScale = baseSize + (baseSize * 0.6 * influence); 
+          } else {
+            targetScale = baseSize;
+          }
+        } else {
+          targetScale = baseSize;
+        }
+
+        // Apply smooth lerp for the "spring-like" easing effect (emil-design-eng)
+        const currentScale = entry.sprite.scale.x;
+        const nextScale = THREE.MathUtils.lerp(currentScale, targetScale, 0.15);
+        entry.sprite.scale.set(nextScale, nextScale, 1);
+      });
+
       renderer.render(scene, camera);
     }
     tick();
@@ -506,8 +591,6 @@ export function VibeScene(props: VibeSceneProps) {
           transparent: true,
         });
         const sprite = new THREE.Sprite(material);
-        const size = point.isOrigin ? SPRITE_SIZE * 1.25 : SPRITE_SIZE;
-        sprite.scale.set(size, size, 1);
         sprite.userData.pointId = point.id;
         group.add(sprite);
 
@@ -545,19 +628,7 @@ export function VibeScene(props: VibeSceneProps) {
     });
   }, [props.points, props.activeAxisIds, props.selectedPointId]);
 
-  // ---- pending marker -----------------------------------------------------------
-  useEffect(() => {
-    const marker = pendingMarkerRef.current;
-    if (!marker) return;
-    if (props.pendingCoordinate) {
-      marker.visible = true;
-      marker.position.copy(
-        coordToWorld(props.pendingCoordinate, props.activeAxisIds)
-      );
-    } else {
-      marker.visible = false;
-    }
-  }, [props.pendingCoordinate, props.activeAxisIds]);
+
 
   return <div ref={containerRef} className="scene-container" />;
 }

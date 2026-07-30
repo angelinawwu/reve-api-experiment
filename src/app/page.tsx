@@ -33,9 +33,9 @@ const DEFAULT_AXES: Axis[] = [
 ];
 
 export default function Home() {
-  const [axes, setAxes] = useState<Axis[]>([]);
+  const [axes, setAxes] = useState<Axis[]>(DEFAULT_AXES);
   const [points, setPoints] = useState<VibePoint[]>([]);
-  const [activeAxisIds, setActiveAxisIds] = useState<SliceAxisIds | null>(null);
+  const [activeAxisIds, setActiveAxisIds] = useState<SliceAxisIds | null>([DEFAULT_AXES[0].id, DEFAULT_AXES[1].id]);
   const [mode, setMode] = useState<InteractionMode>("click");
   const [pendingCoordinate, setPendingCoordinate] = useState<Coordinate | null>(null);
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
@@ -50,9 +50,6 @@ export default function Home() {
   axesRef.current = axes;
   const inFlightRef = useRef<Set<string>>(new Set());
 
-  const started = activeAxisIds !== null;
-
-  // ---- startup: origin image + default dimensions ---------------------------
   const handleCreateOrigin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prompt.trim() || creating) return;
@@ -68,8 +65,6 @@ export default function Home() {
         isOrigin: true,
       };
       setPoints([origin]);
-      setAxes(DEFAULT_AXES);
-      setActiveAxisIds([DEFAULT_AXES[0].id, DEFAULT_AXES[1].id]);
       setSelectedPointId(origin.id);
     } catch (err) {
       setGlobalError(err instanceof Error ? err.message : "Create failed");
@@ -231,38 +226,7 @@ export default function Home() {
   const generatingCount = points.filter((p) => p.status === "generating").length;
 
   // ---- render ----------------------------------------------------------------------
-  if (!started) {
-    return (
-      <main className="genesis">
-        <div className="genesis-frame">
-          <p className="genesis-kicker">VIBE SPACE / 3D</p>
-          <h1 className="genesis-title">DEFINE THE ORIGIN</h1>
-          <p className="genesis-sub">
-            One image anchors the space at coordinate zero. Every other point is
-            a remix of it, placed along the dimensions you define.
-          </p>
-          <form className="genesis-form" onSubmit={handleCreateOrigin}>
-            <input
-              className="field genesis-input"
-              placeholder="a taxidermied crow wearing a tiny crown"
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              autoFocus
-              disabled={creating}
-            />
-            <button
-              className="btn-solid"
-              type="submit"
-              disabled={creating || !prompt.trim()}
-            >
-              {creating ? "GENERATING…" : "GENERATE ORIGIN"}
-            </button>
-          </form>
-          {globalError && <p className="error-text">{globalError}</p>}
-        </div>
-      </main>
-    );
-  }
+
 
   return (
     <main className="workspace">
@@ -287,7 +251,7 @@ export default function Home() {
       <div className="viewport">
         <VibeScene
           axes={axes}
-          activeAxisIds={activeAxisIds}
+          activeAxisIds={activeAxisIds!}
           points={points}
           mode={mode}
           pendingCoordinate={pendingCoordinate}
@@ -297,6 +261,33 @@ export default function Home() {
           onSelectPoint={setSelectedPointId}
           onCursorCoordinate={setCursorCoordinate}
         />
+
+        {points.length === 0 && (
+          <div className="origin-prompt-card">
+            <h2>DEFINE THE ORIGIN</h2>
+            <p>
+              One image anchors the space at coordinate zero. Every other point is a remix of it.
+            </p>
+            <form onSubmit={handleCreateOrigin}>
+              <input
+                className="field"
+                placeholder="a taxidermied crow wearing a tiny crown"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                autoFocus
+                disabled={creating}
+              />
+              <button
+                className="btn-solid"
+                type="submit"
+                disabled={creating || !prompt.trim()}
+              >
+                {creating ? "GENERATING…" : "GENERATE ORIGIN"}
+              </button>
+            </form>
+            {globalError && <p className="error-text">{globalError}</p>}
+          </div>
+        )}
 
         {/* Coordinate readout */}
         <div className="hud-readout">
