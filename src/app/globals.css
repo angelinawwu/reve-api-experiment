@@ -514,3 +514,132 @@ button:disabled {
 .confirm-actions .btn-solid {
   padding: 8px 16px;
 }
+
+/* ---------- Radial Gizmo ---------- */
+
+.gizmo-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.radial-gizmo-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translate(-50%, -50%);
+  animation: gizmo-enter 0.4s var(--ease-out-expo) both;
+}
+
+@keyframes gizmo-enter {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.radial-gizmo-hub {
+  position: relative;
+  width: 1px;
+  height: 1px;
+}
+
+.gizmo-center-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  transform: translate(-50%, -50%);
+  background: var(--accent);
+  border-radius: 50% !important;
+  box-shadow: 0 0 16px rgba(255, 255, 255, 0.4);
+  z-index: 10;
+}
+
+.gizmo-petal-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+}
+
+.gizmo-petal-line {
+  position: absolute;
+  top: 0;
+  left: -80px; 
+  width: 160px; 
+  height: 24px;
+  transform: translateY(-50%);
+  cursor: ew-resize;
+}
+
+.gizmo-petal-track {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-50%);
+}
+
+.gizmo-petal-handle {
+  position: absolute;
+  top: 50%;
+  left: 80px; 
+  width: 12px;
+  height: 12px;
+  background: var(--accent);
+  border-radius: 50% !important;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+  pointer-events: none;
+}
+
+.gizmo-petal-label {
+  position: absolute;
+  top: -16px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.pos-pole {
+  right: 0;
+  transform: translateX(50%);
+}
+
+.neg-pole {
+  left: 0;
+  transform: translateX(-50%);
+  color: var(--text-dim);
+}
+
+.gizmo-actions {
+  position: absolute;
+  top: 110px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  background: rgba(18, 18, 18, 0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border-strong);
+  padding: 8px 12px;
+}

@@ -232,7 +232,7 @@ export default function Home() {
     <main className="workspace">
       <ControlPanel
         axes={axes}
-        activeAxisIds={activeAxisIds}
+        activeAxisIds={activeAxisIds!}
         mode={mode}
         points={points}
         selectedPoint={selectedPoint}
@@ -260,6 +260,9 @@ export default function Home() {
           onWalkSample={handleWalkSample}
           onSelectPoint={setSelectedPointId}
           onCursorCoordinate={setCursorCoordinate}
+          onPendingCoordinateChange={setPendingCoordinate}
+          onConfirmPending={confirmPending}
+          onCancelPending={() => setPendingCoordinate(null)}
         />
 
         {points.length === 0 && (
@@ -292,7 +295,7 @@ export default function Home() {
         {/* Coordinate readout */}
         <div className="hud-readout">
           {cursorCoordinate
-            ? formatCoord(cursorCoordinate, axes, activeAxisIds)
+            ? formatCoord(cursorCoordinate, axes, activeAxisIds!)
             : "—"}
         </div>
 
@@ -300,26 +303,6 @@ export default function Home() {
         {generatingCount > 0 && (
           <div className="hud-status">
             GENERATING {generatingCount} POINT{generatingCount > 1 ? "S" : ""}…
-          </div>
-        )}
-
-        {/* Pending placement confirmation */}
-        {pendingCoordinate && (
-          <div className="confirm-card">
-            <p className="confirm-coord">
-              {formatCoord(pendingCoordinate, axes, activeAxisIds)}
-            </p>
-            <div className="confirm-actions">
-              <button className="btn-solid" onClick={confirmPending}>
-                GENERATE HERE
-              </button>
-              <button
-                className="btn-ghost"
-                onClick={() => setPendingCoordinate(null)}
-              >
-                CANCEL
-              </button>
-            </div>
           </div>
         )}
       </div>

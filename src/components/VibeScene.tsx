@@ -12,6 +12,7 @@ import {
   VibePoint,
 } from "@/lib/types";
 import { axisValue, normalizeCoord } from "@/lib/space";
+import { RadialGizmo } from "./RadialGizmo";
 
 const WORLD = 2.0; // world units per coordinate unit 1
 const AXIS_OVERHANG = 1.18; // axis lines extend slightly past ±1
@@ -38,6 +39,9 @@ interface VibeSceneProps {
   onWalkSample: (coordinate: Coordinate) => void;
   onSelectPoint: (id: string | null) => void;
   onCursorCoordinate: (coordinate: Coordinate | null) => void;
+  onPendingCoordinateChange?: (coordinate: Coordinate) => void;
+  onConfirmPending?: () => void;
+  onCancelPending?: () => void;
 }
 
 function coordToWorld(coord: Coordinate, active: AxisId[]): THREE.Vector3 {
@@ -63,11 +67,11 @@ function worldToCoord(pos: THREE.Vector3, active: AxisId[]): Coordinate {
 
 /** Canvas-rendered mono text as an always-camera-facing sprite. */
 function makeLabelSprite(text: string, opts?: { dim?: boolean }): THREE.Sprite {
-  const font = "500 44px 'IBM Plex Mono', 'SFMono-Regular', monospace";
+  const font = "400 24px 'IBM Plex Mono', 'SFMono-Regular', monospace";
   const measure = document.createElement("canvas").getContext("2d")!;
   measure.font = font;
   const w = Math.ceil(measure.measureText(text).width) + 24;
-  const h = 64;
+  const h = 36;
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
@@ -134,6 +138,7 @@ export function VibeScene(props: VibeSceneProps) {
   const originMarkerRef = useRef<THREE.Group | null>(null);
   const cursorCoordRef = useRef<Coordinate | null>(null);
   const hoveredPointIdRef = useRef<string | null>(null);
+  const gizmoOverlayRef = useRef<HTMLDivElement>(null);
 
   // ---- one-time scene setup -------------------------------------------------
   useEffect(() => {
@@ -400,6 +405,22 @@ export function VibeScene(props: VibeSceneProps) {
         }
       }
 
+      if (gizmoOverlayRef.current && container) {
+        if (propsNow.pendingCoordinate && propsNow.mode === "click") {
+          gizmoOverlayRef.current.style.display = "block";
+          const worldPos = coordToWorld(propsNow.pendingCoordinate, propsNow.activeAxisIds);
+          // Project the 3D position to screen space
+          worldPos.project(camera);
+          const w = container.clientWidth;
+          const h = container.clientHeight;
+          const x = (worldPos.x * 0.5 + 0.5) * w;
+          const y = (-(worldPos.y * 0.5) + 0.5) * h;
+          gizmoOverlayRef.current.style.transform = `translate(${x}px, ${y}px)`;
+        } else {
+          gizmoOverlayRef.current.style.display = "none";
+        }
+      }
+
       if (originMarkerRef.current) {
         const hasPoints = propsNow.points.length > 0;
         originMarkerRef.current.visible = !hasPoints;
@@ -651,5 +672,25 @@ export function VibeScene(props: VibeSceneProps) {
 
 
 
-  return <div ref={containerRef} className="scene-container" />;
+  return (
+    <>
+      <div ref={containerRef} className="scene-container" />
+      <div
+        ref={gizmoOverlayRef}
+        className="gizmo-overlay"
+        style={{ display: "none" }}
+      >
+        {props.pendingCoordinate && props.mode === "click" && (
+          <RadialGizmo
+            axes={props.axes}
+            activeAxisIds={props.activeAxisIds}
+            coordinate={props.pendingCoordinate}
+            onChange={props.onPendingCoordinateChange!}
+            onConfirm={props.onConfirmPending!}
+            onCancel={props.onCancelPending!}
+          />
+        )}
+      </div>
+    </>
+  );
 }

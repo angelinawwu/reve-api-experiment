@@ -56,16 +56,16 @@ function AxisRow({
       >
         <input
           className="field field-compact"
-          value={pos}
-          onChange={(e) => setPos(e.target.value)}
-          aria-label="Positive pole"
+          value={neg}
+          onChange={(e) => setNeg(e.target.value)}
+          aria-label="Negative pole"
         />
         <span className="axis-sep">/</span>
         <input
           className="field field-compact"
-          value={neg}
-          onChange={(e) => setNeg(e.target.value)}
-          aria-label="Negative pole"
+          value={pos}
+          onChange={(e) => setPos(e.target.value)}
+          aria-label="Positive pole"
         />
         <button type="submit" className="btn-ghost" title="Save">
           OK
@@ -77,9 +77,9 @@ function AxisRow({
   return (
     <div className="axis-row">
       <span className="axis-name">
-        {axis.positivePole}
-        <span className="axis-sep">/</span>
         {axis.negativePole}
+        <span className="axis-sep">/</span>
+        {axis.positivePole}
       </span>
       {axis.source === "default" && <span className="axis-tag">DEF</span>}
       <button
@@ -183,7 +183,7 @@ export function ControlPanel(props: ControlPanelProps) {
                 {i === 2 && <option value="">— (2D plane)</option>}
                 {props.axes.map((axis) => (
                   <option key={axis.id} value={axis.id}>
-                    {axis.positivePole} / {axis.negativePole}
+                    {axis.negativePole} / {axis.positivePole}
                   </option>
                 ))}
               </select>
@@ -220,16 +220,16 @@ export function ControlPanel(props: ControlPanelProps) {
         >
           <input
             className="field field-compact"
-            placeholder="positive pole"
-            value={newPos}
-            onChange={(e) => setNewPos(e.target.value)}
+            placeholder="negative pole"
+            value={newNeg}
+            onChange={(e) => setNewNeg(e.target.value)}
           />
           <span className="axis-sep">/</span>
           <input
             className="field field-compact"
-            placeholder="negative pole"
-            value={newNeg}
-            onChange={(e) => setNewNeg(e.target.value)}
+            placeholder="positive pole"
+            value={newPos}
+            onChange={(e) => setNewPos(e.target.value)}
           />
           <button
             type="submit"
