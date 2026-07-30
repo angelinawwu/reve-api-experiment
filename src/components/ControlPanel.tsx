@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Eye, EyeClosed, Pencil, Trash } from "@phosphor-icons/react";
+import { GeneratingLoader } from "./GeneratingLoader";
 import {
   Axis,
   AxisId,
@@ -255,9 +256,11 @@ export function ControlPanel(props: ControlPanelProps) {
                   alt="Selected point"
                 />
               ) : (
-                <div
-                  className="inspector-image w-full aspect-square rounded-lg bg-frame"
-                />
+                <div className="inspector-image w-full aspect-square rounded-lg bg-frame overflow-hidden relative">
+                  {props.selectedPoint.status === "generating" && (
+                    <GeneratingLoader />
+                  )}
+                </div>
               )}
           </div>
           <div className="inspector-coords">

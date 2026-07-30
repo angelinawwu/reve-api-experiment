@@ -3,7 +3,7 @@ import { ImageGeneration, ImageGenerationHandle } from "img-fx";
 
 const FAKE_IMG = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
-export function GeneratingLoader() {
+export function GeneratingLoader(props: { className?: string; style?: React.CSSProperties }) {
   const ref = useRef<ImageGenerationHandle>(null);
 
   useEffect(() => {
@@ -27,9 +27,10 @@ export function GeneratingLoader() {
       preset="sweep-gradient" 
       images={[FAKE_IMG]} 
       autoReveal={false}
-      style={{ width: "100%", height: "100%" }}
+      style={{ width: "100%", height: "100%", ...props.style }}
+      className={props.className}
     >
-      <div style={{ width: "100%", height: "100%", background: "#4a3c2c" }} />
+      <div style={{ width: "100%", height: "100%" }} className={props.className} />
     </ImageGeneration>
   );
 }

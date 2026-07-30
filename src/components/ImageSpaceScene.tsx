@@ -779,7 +779,7 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
         style={{ display: "none" }}
       >
         {targetCoord && (
-          <div className={`selected-point-tooltip${showGizmoOffset ? " has-gizmo" : ""}`}>
+          <div className={`selected-point-tooltip${showGizmoOffset ? " has-gizmo" : ""}${props.points.find(p => p.id === props.selectedPointId)?.status === "generating" ? " is-generating" : ""}`}>
             <div className="tooltip-title">
               {tooltipTitle}
             </div>
