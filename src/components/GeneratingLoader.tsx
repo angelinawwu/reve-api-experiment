@@ -9,16 +9,27 @@ export function GeneratingLoader() {
   useEffect(() => {
     // Start revealing the fake image
     ref.current?.triggerReveal({ hold: "manual" });
-    // Immediately put it into a boil state so it churns indefinitely
-    const t = setTimeout(() => {
-      ref.current?.triggerRegenerate({ autoReveal: false });
-    }, 100);
-    return () => clearTimeout(t);
+    
+    // Poll to put it into a boil state so it churns indefinitely
+    const interval = setInterval(() => {
+      if (ref.current?.isImageActive()) {
+        ref.current?.triggerRegenerate({ autoReveal: false });
+        clearInterval(interval);
+      }
+    }, 50);
+
+    return () => clearInterval(interval);
   }, []);
 
   return (
-    <ImageGeneration ref={ref} preset="sweep-gradient" images={[FAKE_IMG]} autoReveal={false}>
-      <div style={{ width: "100%", height: "100%", background: "transparent" }} />
+    <ImageGeneration 
+      ref={ref} 
+      preset="sweep-gradient" 
+      images={[FAKE_IMG]} 
+      autoReveal={false}
+      style={{ width: "100%", height: "100%" }}
+    >
+      <div style={{ width: "100%", height: "100%", background: "#4a3c2c" }} />
     </ImageGeneration>
   );
 }
