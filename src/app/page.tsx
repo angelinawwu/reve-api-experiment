@@ -37,6 +37,18 @@ const DEFAULT_AXES: Axis[] = [
 ];
 
 export default function Home() {
+  const PLACEHOLDER_PROMPTS = [
+    "porcelain raven queen",
+    "velvet moth priest",
+    "neon glass fox",
+    "salt crystal snail",
+    "marble moth king",
+    "crystal butterfly knight",
+  ];
+  const placeholderPrompt = useMemo(
+    () => PLACEHOLDER_PROMPTS[Math.floor(Math.random() * PLACEHOLDER_PROMPTS.length)],
+    []
+  );
   const [axes, setAxes] = useState<Axis[]>(DEFAULT_AXES);
   const [points, setPoints] = useState<ImagePoint[]>([]);
   const [activeAxisIds, setActiveAxisIds] = useState<SliceAxisIds | null>([DEFAULT_AXES[0].id, DEFAULT_AXES[1].id]);
@@ -295,7 +307,7 @@ export default function Home() {
             <form onSubmit={handleCreateOrigin}>
               <input
                 className="field bg-[#0a0a0a]"
-                placeholder="a taxidermied crow wearing a tiny crown"
+                placeholder={placeholderPrompt}
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 autoFocus
