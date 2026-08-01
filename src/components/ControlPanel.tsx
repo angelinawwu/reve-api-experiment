@@ -303,10 +303,11 @@ export function ControlPanel(props: ControlPanelProps) {
           ) : (
             <>
               <p className="hint">
-                Repositioning calibrates the point&apos;s metadata only. The point is not regenerated.
+                Repositioning calibrates metadata only. The point is not regenerated.
               </p>
               <button
                 className="btn-ghost btn-danger"
+                style={{ marginTop: 10 }}
                 onClick={() => props.onDeletePoint(props.selectedPoint!.id)}
               >
                 DELETE POINT
