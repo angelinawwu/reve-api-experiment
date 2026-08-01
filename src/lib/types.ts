@@ -32,8 +32,11 @@ export type InteractionMode = "click" | "walk";
  *   their per-axis projections (star coordinates).
  * - "projection": first three axes stay orthogonal (X/Y/Z); further axes
  *   project obliquely out of the base volume along cube diagonals.
+ * - "astral": dimensions are chunked into cubes of three; each successive
+ *   cube erupts from a corner of the previous one, tethered tesseract-style,
+ *   slowly tumbling. Point positions sum each chunk's rotating basis.
  */
-export type ViewMode = "slice" | "starburst" | "projection";
+export type ViewMode = "slice" | "starburst" | "projection" | "astral";
 
 export interface ViewState {
   activeAxisIds: SliceAxisIds;

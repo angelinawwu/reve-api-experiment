@@ -110,7 +110,7 @@ function AxisRow({
           <Pencil size={16} />
         </button>
         <button
-          className="btn-ghost btn-icon text-red-500 hover:border-red-500 hover:text-red-500"
+          className="btn-ghost btn-icon btn-danger"
           onClick={onRemove}
           disabled={!removable}
           title={removable ? "Delete dimension" : "At least 2 dimensions required"}
@@ -306,7 +306,7 @@ export function ControlPanel(props: ControlPanelProps) {
                 Repositioning calibrates the point&apos;s metadata only. The point is not regenerated.
               </p>
               <button
-                className="btn-ghost text-red-500 hover:border-red-500 hover:text-red-500"
+                className="btn-ghost btn-danger"
                 onClick={() => props.onDeletePoint(props.selectedPoint!.id)}
               >
                 DELETE POINT

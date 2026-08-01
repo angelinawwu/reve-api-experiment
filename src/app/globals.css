@@ -9,6 +9,7 @@
     --text-dim: #a3a3a3;
     --text-faint: #737373;
     --accent: #ffffff;
+    --danger: #ff3333;
   }
 
   * {
@@ -201,6 +202,18 @@
 .btn-accent {
   color: var(--accent);
   border-color: var(--accent);
+}
+
+.btn-ghost.btn-danger {
+  color: var(--danger);
+  border-color: var(--border);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn-ghost.btn-danger:hover:not(:disabled) {
+    color: var(--danger);
+    border-color: var(--danger);
+  }
 }
 
 /* ---------- workspace layout ---------- */
@@ -441,7 +454,7 @@
   align-items: center;
   justify-content: center;
   color: var(--text-faint);
-  transition: color 200ms ease, background-color 200ms ease;
+  transition: none;
 }
 
 .view-switcher-btn + .view-switcher-btn {

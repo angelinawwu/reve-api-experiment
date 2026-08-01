@@ -79,12 +79,88 @@ const OBLIQUE_DIRS = [
 
 const OBLIQUE_SCALE = 0.55;
 
+// ---- astral view: chained, tumbling sub-cubes -------------------------------
+
+const ASTRAL_CHUNK_SCALE = 0.45; // each cube is this fraction of its parent
+const ASTRAL_GAP = 1.9; // center spacing multiplier between tethered cubes
+
+/** Corner directions successive cubes erupt along. */
+const ASTRAL_OFFSET_DIRS = [
+  new THREE.Vector3(1, 1, 1),
+  new THREE.Vector3(1, -1, -1),
+  new THREE.Vector3(-1, 1, -1),
+  new THREE.Vector3(-1, -1, 1),
+].map((v) => v.normalize());
+
+/** The 8 unit corners of a cube, in a stable order for connector lines. */
+const CUBE_CORNERS = [-1, 1].flatMap((x) =>
+  [-1, 1].flatMap((y) => [-1, 1].map((z) => new THREE.Vector3(x, y, z)))
+);
+
+interface AstralChunk {
+  index: number;
+  ids: AxisId[];
+  center: THREE.Vector3;
+  /** Basis scale relative to WORLD. */
+  scale: number;
+  /** Half-extent of this chunk's cube in world units. */
+  half: number;
+}
+
+/** Split visible axes into cubes of three, each erupting from the last. */
+function computeAstralChunks(visibleAxisIds: AxisId[]): AstralChunk[] {
+  const chunks: AstralChunk[] = [];
+  let prevCenter = new THREE.Vector3();
+  let prevHalf = WORLD;
+  for (let k = 0; k * 3 < visibleAxisIds.length; k++) {
+    const ids = visibleAxisIds.slice(k * 3, k * 3 + 3);
+    const scale = Math.pow(ASTRAL_CHUNK_SCALE, k);
+    const half = WORLD * scale;
+    const center =
+      k === 0
+        ? new THREE.Vector3()
+        : prevCenter
+            .clone()
+            .addScaledVector(
+              ASTRAL_OFFSET_DIRS[(k - 1) % ASTRAL_OFFSET_DIRS.length],
+              (prevHalf + half) * ASTRAL_GAP
+            );
+    chunks.push({ index: k, ids, center, scale, half });
+    prevCenter = center;
+    prevHalf = half;
+  }
+  return chunks;
+}
+
+/** Slow tumble for chunk k at time t; the base cube (k=0) stays fixed. */
+function astralRotation(k: number, timeSec: number): THREE.Quaternion {
+  if (k === 0) return new THREE.Quaternion();
+  return new THREE.Quaternion().setFromEuler(
+    new THREE.Euler(timeSec * (0.05 + 0.035 * k), timeSec * (0.11 + 0.05 * k), 0)
+  );
+}
+
 /** Direction (and length) each axis occupies in the scene for the view. */
 function computeAxisDirs(
   viewMode: ViewMode,
   activeAxisIds: SliceAxisIds,
-  visibleAxisIds: AxisId[]
+  visibleAxisIds: AxisId[],
+  timeSec = 0
 ): AxisDir[] {
+  if (viewMode === "astral") {
+    const out: AxisDir[] = [];
+    for (const chunk of computeAstralChunks(visibleAxisIds)) {
+      const q = astralRotation(chunk.index, timeSec);
+      chunk.ids.forEach((id, i) =>
+        out.push({
+          id,
+          dir: ORTHO_DIRS[i].clone().applyQuaternion(q),
+          scale: chunk.scale,
+        })
+      );
+    }
+    return out;
+  }
   if (viewMode === "slice") {
     return activeAxisIds.map((id, i) => ({
       id,
@@ -465,17 +541,70 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
     el.addEventListener("pointerleave", onPointerLeave);
 
     // ---- render loop ----
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
     let raf = 0;
     function tick() {
       raf = requestAnimationFrame(tick);
       controls.update();
       
       const propsNow = propsRef.current;
+      const timeSec = reduceMotion ? 0 : performance.now() / 1000;
       const dirsNow = computeAxisDirs(
         propsNow.viewMode,
         propsNow.activeAxisIds,
-        propsNow.visibleAxisIds
+        propsNow.visibleAxisIds,
+        timeSec
       );
+
+      // Astral: tumble the sub-cubes, re-tether the corner connectors and
+      // keep points in sync with the rotating bases.
+      if (propsNow.viewMode === "astral") {
+        const chunks = computeAstralChunks(propsNow.visibleAxisIds);
+        const rots = chunks.map((c) => astralRotation(c.index, timeSec));
+        chunks.forEach((chunk, k) => {
+          const chunkGroup = axesGroupRef.current?.getObjectByName(
+            `astral-chunk-${k}`
+          );
+          if (chunkGroup) chunkGroup.quaternion.copy(rots[k]);
+          if (k === 0) return;
+          const conn = axesGroupRef.current?.getObjectByName(
+            `astral-connectors-${k}`
+          ) as THREE.LineSegments | undefined;
+          if (!conn) return;
+          const posAttr = conn.geometry.getAttribute(
+            "position"
+          ) as THREE.BufferAttribute;
+          const prev = chunks[k - 1];
+          CUBE_CORNERS.forEach((corner, ci) => {
+            const a = corner
+              .clone()
+              .multiplyScalar(prev.half)
+              .applyQuaternion(rots[k - 1])
+              .add(prev.center);
+            const b = corner
+              .clone()
+              .multiplyScalar(chunk.half)
+              .applyQuaternion(rots[k])
+              .add(chunk.center);
+            posAttr.setXYZ(ci * 2, a.x, a.y, a.z);
+            posAttr.setXYZ(ci * 2 + 1, b.x, b.y, b.z);
+          });
+          posAttr.needsUpdate = true;
+          (conn.material as THREE.LineBasicMaterial).opacity =
+            0.16 + 0.08 * Math.sin(timeSec * 1.4 + k * 1.7);
+        });
+        // Points ride the rotating bases.
+        for (const point of propsNow.points) {
+          const entry = pointEntriesRef.current.get(point.id);
+          if (entry) {
+            entry.group.position.copy(
+              coordToWorldDirs(point.coordinate, dirsNow)
+            );
+          }
+        }
+      }
       const marker = pendingMarkerRef.current;
       if (marker) {
         if (propsNow.viewMode !== "slice") {
@@ -633,10 +762,11 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
     const renderer = rendererRef.current;
     if (!controls || !renderer) return;
     if (props.viewMode !== "slice") {
-      // Read-only views: starburst is planar, projection is freely orbitable.
-      controls.enableRotate = props.viewMode === "projection";
-      renderer.domElement.style.cursor =
-        props.viewMode === "projection" ? "grab" : "default";
+      // Read-only views: starburst is planar; projection/astral orbit freely.
+      const orbitable =
+        props.viewMode === "projection" || props.viewMode === "astral";
+      controls.enableRotate = orbitable;
+      renderer.domElement.style.cursor = orbitable ? "grab" : "default";
       return;
     }
     const is3D = props.activeAxisIds.length === 3;
@@ -656,6 +786,8 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
       camera.position.set(0, 0, 7.2);
     } else if (viewMode === "projection") {
       camera.position.set(4.2, 3.1, 5.2);
+    } else if (viewMode === "astral") {
+      camera.position.set(5.6, 4.2, 6.8);
     } else if (dimCount === 2) {
       camera.position.set(0, 0, 6.2);
     } else {
@@ -686,12 +818,15 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
     }
 
     const group = new THREE.Group();
-    const axisDirs = computeAxisDirs(
-      props.viewMode,
-      props.activeAxisIds,
-      props.visibleAxisIds
-    );
-    axisDirs.forEach(({ id: axisId, dir, scale }) => {
+
+    /** One bidirectional axis line with ticks and pole labels. */
+    const buildAxis = (
+      parent: THREE.Object3D,
+      axisId: AxisId,
+      dir: THREE.Vector3,
+      scale: number,
+      labelScale = 1
+    ) => {
       const axis = props.axes.find((a) => a.id === axisId);
       if (!axis) return;
       const ext = WORLD * AXIS_OVERHANG * scale;
@@ -703,7 +838,7 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
         lineGeo,
         new THREE.LineBasicMaterial({ color: COLOR_AXIS })
       );
-      group.add(line);
+      parent.add(line);
 
       // Unit tick marks at ±1.
       for (const s of [-1, 1]) {
@@ -714,7 +849,7 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
             .multiplyScalar(s * WORLD * scale)
             .add(new THREE.Vector3(0.05, 0.05, 0.05)),
         ]);
-        group.add(
+        parent.add(
           new THREE.Line(
             tickGeo,
             new THREE.LineBasicMaterial({ color: COLOR_AXIS })
@@ -723,12 +858,90 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
       }
 
       const posLabel = makeLabelSprite(axis.positivePole);
-      posLabel.position.copy(dir.clone().multiplyScalar(ext + 0.32));
-      group.add(posLabel);
+      posLabel.position.copy(dir.clone().multiplyScalar(ext + 0.32 * labelScale));
+      posLabel.scale.multiplyScalar(labelScale);
+      parent.add(posLabel);
       const negLabel = makeLabelSprite(axis.negativePole, { dim: true });
-      negLabel.position.copy(dir.clone().multiplyScalar(-(ext + 0.32)));
-      group.add(negLabel);
-    });
+      negLabel.position.copy(
+        dir.clone().multiplyScalar(-(ext + 0.32 * labelScale))
+      );
+      negLabel.scale.multiplyScalar(labelScale);
+      parent.add(negLabel);
+    };
+
+    if (props.viewMode === "astral") {
+      const chunks = computeAstralChunks(props.visibleAxisIds);
+      chunks.forEach((chunk) => {
+        // Tumbling sub-cube: wireframe + its own three axes, in local space.
+        const chunkGroup = new THREE.Group();
+        chunkGroup.name = `astral-chunk-${chunk.index}`;
+        chunkGroup.position.copy(chunk.center);
+
+        const edges = new THREE.LineSegments(
+          new THREE.EdgesGeometry(
+            new THREE.BoxGeometry(chunk.half * 2, chunk.half * 2, chunk.half * 2)
+          ),
+          new THREE.LineBasicMaterial({ color: COLOR_FRAME })
+        );
+        chunkGroup.add(edges);
+
+        const labelScale = chunk.index === 0 ? 1 : Math.max(chunk.scale, 0.6);
+        chunk.ids.forEach((id, i) =>
+          buildAxis(chunkGroup, id, ORTHO_DIRS[i].clone(), chunk.scale, labelScale)
+        );
+        group.add(chunkGroup);
+
+        if (chunk.index === 0) return;
+
+        // Tesseract-style tethers: parent corners to child corners, positions
+        // are rewritten every frame in the render loop.
+        const connGeo = new THREE.BufferGeometry();
+        connGeo.setAttribute(
+          "position",
+          new THREE.BufferAttribute(new Float32Array(CUBE_CORNERS.length * 2 * 3), 3)
+        );
+        const conn = new THREE.LineSegments(
+          connGeo,
+          new THREE.LineBasicMaterial({
+            color: COLOR_AXIS,
+            transparent: true,
+            opacity: 0.2,
+          })
+        );
+        conn.name = `astral-connectors-${chunk.index}`;
+        conn.frustumCulled = false;
+        group.add(conn);
+
+        // Caret between the cubes, pointing at the erupting child.
+        const prev = chunks[chunk.index - 1];
+        const offsetDir = chunk.center.clone().sub(prev.center).normalize();
+        const caret = new THREE.Mesh(
+          new THREE.ConeGeometry(0.07, 0.18, 4),
+          new THREE.MeshBasicMaterial({
+            color: 0x8c98a8,
+            transparent: true,
+            opacity: 0.9,
+          })
+        );
+        caret.quaternion.setFromUnitVectors(
+          new THREE.Vector3(0, 1, 0),
+          offsetDir
+        );
+        caret.position
+          .copy(prev.center)
+          .add(chunk.center)
+          .multiplyScalar(0.5);
+        group.add(caret);
+      });
+    } else {
+      const axisDirs = computeAxisDirs(
+        props.viewMode,
+        props.activeAxisIds,
+        props.visibleAxisIds
+      );
+      axisDirs.forEach(({ id, dir, scale }) => buildAxis(group, id, dir, scale));
+    }
+
     scene.add(group);
     axesGroupRef.current = group;
   }, [props.axes, props.activeAxisIds, props.viewMode, props.visibleAxisIds]);
