@@ -3,6 +3,7 @@
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { ControlPanel } from "@/components/ControlPanel";
+import { ViewSwitcher } from "@/components/ViewSwitcher";
 import { createOriginImage, remixImage } from "@/lib/api";
 import {
   buildRemixInstruction,
@@ -20,6 +21,7 @@ import {
   InteractionMode,
   SliceAxisIds,
   ImagePoint,
+  ViewMode,
 } from "@/lib/types";
 
 const ImageSpaceScene = dynamic(
@@ -37,6 +39,8 @@ export default function Home() {
   const [points, setPoints] = useState<ImagePoint[]>([]);
   const [activeAxisIds, setActiveAxisIds] = useState<SliceAxisIds | null>([DEFAULT_AXES[0].id, DEFAULT_AXES[1].id]);
   const [mode, setMode] = useState<InteractionMode>("click");
+  const [viewMode, setViewMode] = useState<ViewMode>("slice");
+  const [hiddenAxisIds, setHiddenAxisIds] = useState<AxisId[]>([]);
   const [pendingCoordinate, setPendingCoordinate] = useState<Coordinate | null>(null);
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
   const [cursorCoordinate, setCursorCoordinate] = useState<Coordinate | null>(null);
@@ -177,6 +181,7 @@ export default function Home() {
     const remaining = axes.filter((a) => a.id !== id);
     if (remaining.length < 2) return;
     setAxes(remaining);
+    setHiddenAxisIds((prev) => prev.filter((a) => a !== id));
     // Strip the axis from every point's coordinate.
     setPoints((prev) =>
       prev.map((p) => {
@@ -226,6 +231,22 @@ export default function Home() {
 
   const generatingCount = points.filter((p) => p.status === "generating").length;
 
+  const visibleAxisIds = useMemo(
+    () => axes.filter((a) => !hiddenAxisIds.includes(a.id)).map((a) => a.id),
+    [axes, hiddenAxisIds]
+  );
+
+  const handleChangeViewMode = (m: ViewMode) => {
+    setViewMode(m);
+    setPendingCoordinate(null);
+  };
+
+  const handleToggleAxisVisibility = (id: AxisId) => {
+    setHiddenAxisIds((prev) =>
+      prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]
+    );
+  };
+
   // ---- render ----------------------------------------------------------------------
 
 
@@ -255,6 +276,8 @@ export default function Home() {
           activeAxisIds={activeAxisIds!}
           points={points}
           mode={mode}
+          viewMode={viewMode}
+          visibleAxisIds={visibleAxisIds}
           pendingCoordinate={pendingCoordinate}
           selectedPointId={selectedPointId}
           onPlace={handlePlace}
@@ -300,12 +323,21 @@ export default function Home() {
             : "—"}
         </div>
 
-        {/* Generation status */}
-        {generatingCount > 0 && (
-          <div className="absolute top-4 right-4 animate-pulse border border-[#ffb454] bg-[#07090c]/82 px-3 py-2 text-[11px] tracking-[0.14em] text-[#ffb454]">
-            GENERATING {generatingCount} POINT{generatingCount > 1 ? "S" : ""}…
-          </div>
-        )}
+        {/* View switcher + generation status */}
+        <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-2">
+          <ViewSwitcher
+            viewMode={viewMode}
+            axes={axes}
+            hiddenAxisIds={hiddenAxisIds}
+            onChangeViewMode={handleChangeViewMode}
+            onToggleAxisVisibility={handleToggleAxisVisibility}
+          />
+          {generatingCount > 0 && (
+            <div className="animate-pulse border border-[#ffb454] bg-[#07090c]/82 px-3 py-2 text-[11px] tracking-[0.14em] text-[#ffb454]">
+              GENERATING {generatingCount} POINT{generatingCount > 1 ? "S" : ""}…
+            </div>
+          )}
+        </div>
       </div>
     </main>
   );

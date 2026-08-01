@@ -11,6 +11,7 @@ import {
   InteractionMode,
   SliceAxisIds,
   ImagePoint,
+  ViewMode,
 } from "@/lib/types";
 import { axisValue, normalizeCoord } from "@/lib/space";
 import { RadialGizmo } from "./RadialGizmo";
@@ -34,6 +35,8 @@ interface ImageSpaceSceneProps {
   activeAxisIds: SliceAxisIds;
   points: ImagePoint[];
   mode: InteractionMode;
+  viewMode: ViewMode;
+  visibleAxisIds: AxisId[];
   pendingCoordinate: Coordinate | null;
   selectedPointId: string | null;
   onPlace: (coordinate: Coordinate) => void;
@@ -51,6 +54,76 @@ function coordToWorld(coord: Coordinate, active: AxisId[]): THREE.Vector3 {
     axisValue(coord, active[1]) * WORLD,
     active.length === 3 ? axisValue(coord, active[2]) * WORLD : 0
   );
+}
+
+interface AxisDir {
+  id: AxisId;
+  dir: THREE.Vector3;
+  /** Length multiplier relative to WORLD (oblique axes are foreshortened). */
+  scale: number;
+}
+
+const ORTHO_DIRS = [
+  new THREE.Vector3(1, 0, 0),
+  new THREE.Vector3(0, 1, 0),
+  new THREE.Vector3(0, 0, 1),
+];
+
+/** The four distinct cube-diagonal lines, used for oblique (4th+) axes. */
+const OBLIQUE_DIRS = [
+  new THREE.Vector3(1, 1, 1),
+  new THREE.Vector3(1, 1, -1),
+  new THREE.Vector3(1, -1, 1),
+  new THREE.Vector3(1, -1, -1),
+].map((v) => v.normalize());
+
+const OBLIQUE_SCALE = 0.55;
+
+/** Direction (and length) each axis occupies in the scene for the view. */
+function computeAxisDirs(
+  viewMode: ViewMode,
+  activeAxisIds: SliceAxisIds,
+  visibleAxisIds: AxisId[]
+): AxisDir[] {
+  if (viewMode === "slice") {
+    return activeAxisIds.map((id, i) => ({
+      id,
+      dir: ORTHO_DIRS[i].clone(),
+      scale: 1,
+    }));
+  }
+  if (viewMode === "starburst") {
+    // Star coordinates: n bidirectional axes evenly fanned over a half-circle
+    // in the XY plane, all crossing at the origin.
+    const n = Math.max(visibleAxisIds.length, 1);
+    return visibleAxisIds.map((id, i) => {
+      const angle = Math.PI / 2 - (i / n) * Math.PI;
+      return {
+        id,
+        dir: new THREE.Vector3(Math.cos(angle), Math.sin(angle), 0),
+        scale: 1,
+      };
+    });
+  }
+  // Oblique projection: first three axes orthogonal, the rest along diagonals.
+  return visibleAxisIds.map((id, i) =>
+    i < 3
+      ? { id, dir: ORTHO_DIRS[i].clone(), scale: 1 }
+      : {
+          id,
+          dir: OBLIQUE_DIRS[(i - 3) % OBLIQUE_DIRS.length].clone(),
+          scale: OBLIQUE_SCALE,
+        }
+  );
+}
+
+/** Position of a coordinate: sum of its per-axis projections. */
+function coordToWorldDirs(coord: Coordinate, dirs: AxisDir[]): THREE.Vector3 {
+  const out = new THREE.Vector3();
+  for (const { id, dir, scale } of dirs) {
+    out.addScaledVector(dir, axisValue(coord, id) * WORLD * scale);
+  }
+  return out;
 }
 
 function clamp(v: number): number {
@@ -270,6 +343,9 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
 
     /** Intersect the placement plane; returns clamped coordinate or null. */
     function pickCoordinate(e: PointerEvent): Coordinate | null {
+      // Placement only makes sense in the slice view, where the mapping from
+      // screen space back to coordinates is unambiguous.
+      if (propsRef.current.viewMode !== "slice") return null;
       ndcFromEvent(e);
       raycaster.setFromCamera(ndc, camera);
       const active = propsRef.current.activeAxisIds;
@@ -395,9 +471,16 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
       controls.update();
       
       const propsNow = propsRef.current;
+      const dirsNow = computeAxisDirs(
+        propsNow.viewMode,
+        propsNow.activeAxisIds,
+        propsNow.visibleAxisIds
+      );
       const marker = pendingMarkerRef.current;
       if (marker) {
-        if (propsNow.pendingCoordinate) {
+        if (propsNow.viewMode !== "slice") {
+          marker.visible = false;
+        } else if (propsNow.pendingCoordinate) {
           marker.visible = true;
           marker.position.copy(coordToWorld(propsNow.pendingCoordinate, propsNow.activeAxisIds));
         } else if (cursorCoordRef.current && propsNow.mode === "click") {
@@ -430,7 +513,7 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
         const targetCoord = propsNow.pendingCoordinate || selectedPoint?.coordinate;
         if (targetCoord) {
           selectedOverlay.style.display = "block";
-          const worldPos = coordToWorld(targetCoord, propsNow.activeAxisIds);
+          const worldPos = coordToWorldDirs(targetCoord, dirsNow);
           // Project the 3D position to screen space
           worldPos.project(camera);
           const w = container.clientWidth;
@@ -549,19 +632,31 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
     const controls = controlsRef.current;
     const renderer = rendererRef.current;
     if (!controls || !renderer) return;
+    if (props.viewMode !== "slice") {
+      // Read-only views: starburst is planar, projection is freely orbitable.
+      controls.enableRotate = props.viewMode === "projection";
+      renderer.domElement.style.cursor =
+        props.viewMode === "projection" ? "grab" : "default";
+      return;
+    }
     const is3D = props.activeAxisIds.length === 3;
     controls.enableRotate = props.mode === "click" && is3D;
     renderer.domElement.style.cursor =
       props.mode === "walk" ? "crosshair" : is3D ? "grab" : "crosshair";
-  }, [props.mode, props.activeAxisIds]);
+  }, [props.mode, props.activeAxisIds, props.viewMode]);
 
-  // ---- camera reset when dimensionality changes ------------------------------
+  // ---- camera reset when dimensionality or view changes -----------------------
   const dimCount = props.activeAxisIds.length;
+  const viewMode = props.viewMode;
   useEffect(() => {
     const camera = cameraRef.current;
     const controls = controlsRef.current;
     if (!camera || !controls) return;
-    if (dimCount === 2) {
+    if (viewMode === "starburst") {
+      camera.position.set(0, 0, 7.2);
+    } else if (viewMode === "projection") {
+      camera.position.set(4.2, 3.1, 5.2);
+    } else if (dimCount === 2) {
       camera.position.set(0, 0, 6.2);
     } else {
       camera.position.set(3.4, 2.5, 4.2);
@@ -570,8 +665,10 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
     controls.update();
     const scene = sceneRef.current;
     const frame = scene?.getObjectByName("volume-frame");
-    if (frame) frame.visible = dimCount === 3;
-  }, [dimCount]);
+    if (frame)
+      frame.visible =
+        viewMode === "projection" || (viewMode === "slice" && dimCount === 3);
+  }, [dimCount, viewMode]);
 
   // ---- axes lines + pole labels ----------------------------------------------
   useEffect(() => {
@@ -589,16 +686,15 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
     }
 
     const group = new THREE.Group();
-    const dirs = [
-      new THREE.Vector3(1, 0, 0),
-      new THREE.Vector3(0, 1, 0),
-      new THREE.Vector3(0, 0, 1),
-    ];
-    props.activeAxisIds.forEach((axisId, i) => {
+    const axisDirs = computeAxisDirs(
+      props.viewMode,
+      props.activeAxisIds,
+      props.visibleAxisIds
+    );
+    axisDirs.forEach(({ id: axisId, dir, scale }) => {
       const axis = props.axes.find((a) => a.id === axisId);
       if (!axis) return;
-      const dir = dirs[i];
-      const ext = WORLD * AXIS_OVERHANG;
+      const ext = WORLD * AXIS_OVERHANG * scale;
       const lineGeo = new THREE.BufferGeometry().setFromPoints([
         dir.clone().multiplyScalar(-ext),
         dir.clone().multiplyScalar(ext),
@@ -612,10 +708,10 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
       // Unit tick marks at ±1.
       for (const s of [-1, 1]) {
         const tickGeo = new THREE.BufferGeometry().setFromPoints([
-          dir.clone().multiplyScalar(s * WORLD),
+          dir.clone().multiplyScalar(s * WORLD * scale),
           dir
             .clone()
-            .multiplyScalar(s * WORLD)
+            .multiplyScalar(s * WORLD * scale)
             .add(new THREE.Vector3(0.05, 0.05, 0.05)),
         ]);
         group.add(
@@ -635,7 +731,7 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
     });
     scene.add(group);
     axesGroupRef.current = group;
-  }, [props.axes, props.activeAxisIds]);
+  }, [props.axes, props.activeAxisIds, props.viewMode, props.visibleAxisIds]);
 
   // ---- points -----------------------------------------------------------------
   useEffect(() => {
@@ -643,6 +739,11 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
     if (!scene) return;
     const entries = pointEntriesRef.current;
     const seen = new Set<string>();
+    const pointDirs = computeAxisDirs(
+      props.viewMode,
+      props.activeAxisIds,
+      props.visibleAxisIds
+    );
 
     for (const point of props.points) {
       seen.add(point.id);
@@ -687,9 +788,7 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
 
       entries
         .get(point.id)!
-        .group.position.copy(
-          coordToWorld(point.coordinate, props.activeAxisIds)
-        );
+        .group.position.copy(coordToWorldDirs(point.coordinate, pointDirs));
     }
 
     // Remove stale entries.
@@ -699,7 +798,13 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
         entries.delete(id);
       }
     });
-  }, [props.points, props.activeAxisIds, props.selectedPointId]);
+  }, [
+    props.points,
+    props.activeAxisIds,
+    props.selectedPointId,
+    props.viewMode,
+    props.visibleAxisIds,
+  ]);
 
 
 
