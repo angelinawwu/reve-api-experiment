@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import { Eye, EyeClosed, Pencil, Trash } from "@phosphor-icons/react";
-import { GeneratingLoader } from "./GeneratingLoader";
 import {
   Axis,
   AxisId,
@@ -10,21 +9,17 @@ import {
   SliceAxisIds,
   ImagePoint,
 } from "@/lib/types";
-import { axisValue } from "@/lib/space";
 
 interface ControlPanelProps {
   axes: Axis[];
   activeAxisIds: SliceAxisIds;
   mode: InteractionMode;
   points: ImagePoint[];
-  selectedPoint: ImagePoint | null;
   onAddAxis: (positivePole: string, negativePole: string) => void;
   onRenameAxis: (id: AxisId, positivePole: string, negativePole: string) => void;
   onRemoveAxis: (id: AxisId) => void;
   onChangeSlice: (ids: SliceAxisIds) => void;
   onChangeMode: (mode: InteractionMode) => void;
-  onRepositionPoint: (pointId: string, axisId: AxisId, value: number) => void;
-  onDeletePoint: (pointId: string) => void;
 }
 
 function AxisRow({
@@ -126,6 +121,9 @@ export function ControlPanel(props: ControlPanelProps) {
   const [newPos, setNewPos] = useState("");
   const [newNeg, setNewNeg] = useState("");
   const is3D = props.activeAxisIds.length === 3;
+  const generatingCount = props.points.filter(
+    (p) => p.status === "generating"
+  ).length;
 
   const handleToggleAxis = (axisId: AxisId) => {
     const isActive = props.activeAxisIds.includes(axisId);
@@ -241,80 +239,10 @@ export function ControlPanel(props: ControlPanelProps) {
         <p className="hint">Adding a dimension never generates an image.</p>
       </section>
 
-      {/* Selected point inspector */}
-      {props.selectedPoint && (
-        <section className="panel-section">
-          <h2 className="section-label">
-            {props.selectedPoint.isOrigin ? "ORIGIN POINT" : "POINT"}
-          </h2>
-          <div className="inspector-image-container relative mb-4">
-              {props.selectedPoint.imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  className="inspector-image w-full h-auto block rounded-lg bg-frame"
-                  src={props.selectedPoint.imageUrl}
-                  alt="Selected point"
-                />
-              ) : (
-                <div className="inspector-image w-full aspect-square rounded-lg bg-frame overflow-hidden relative">
-                  {props.selectedPoint.status === "generating" && (
-                    <GeneratingLoader />
-                  )}
-                </div>
-              )}
-          </div>
-          <div className="inspector-coords">
-            {props.axes.map((axis) => {
-              const v = axisValue(props.selectedPoint!.coordinate, axis.id);
-              return (
-                <div className="coord-row" key={axis.id}>
-                  <span className="coord-pole coord-pole-left">
-                    {axis.negativePole}
-                  </span>
-                  <input
-                    type="range"
-                    className="coord-slider"
-                    min={-1}
-                    max={1}
-                    step={0.01}
-                    value={v}
-                    disabled={props.selectedPoint!.isOrigin}
-                    onChange={(e) =>
-                      props.onRepositionPoint(
-                        props.selectedPoint!.id,
-                        axis.id,
-                        parseFloat(e.target.value)
-                      )
-                    }
-                  />
-                  <span className="coord-pole coord-pole-right">
-                    {axis.positivePole}
-                  </span>
-                  <span className="coord-value">
-                    {v >= 0 ? "+" : ""}
-                    {v.toFixed(2)}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-          {props.selectedPoint.isOrigin ? (
-            <p className="hint">The origin is fixed at the zero coordinate.</p>
-          ) : (
-            <>
-              <p className="hint">
-                Repositioning calibrates metadata only. The point is not regenerated.
-              </p>
-              <button
-                className="btn-ghost btn-danger"
-                style={{ marginTop: 10 }}
-                onClick={() => props.onDeletePoint(props.selectedPoint!.id)}
-              >
-                DELETE POINT
-              </button>
-            </>
-          )}
-        </section>
+      {generatingCount > 0 && (
+        <div className="mt-auto border-t border-[#262626] px-5 py-3 text-[11px] tracking-[0.14em] text-[#4ade80] animate-pulse">
+          GENERATING {generatingCount} POINT{generatingCount > 1 ? "S" : ""}…
+        </div>
       )}
     </aside>
   );

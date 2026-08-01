@@ -3,6 +3,7 @@
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { ControlPanel } from "@/components/ControlPanel";
+import { GeneratingLoader } from "@/components/GeneratingLoader";
 import { ViewSwitcher } from "@/components/ViewSwitcher";
 import { createOriginImage, remixImage } from "@/lib/api";
 import {
@@ -12,6 +13,7 @@ import {
   formatCoord,
   hashCoord,
   makeId,
+  axisValue,
   normalizeCoord,
 } from "@/lib/space";
 import {
@@ -229,8 +231,6 @@ export default function Home() {
     [points, selectedPointId]
   );
 
-  const generatingCount = points.filter((p) => p.status === "generating").length;
-
   const visibleAxisIds = useMemo(
     () => axes.filter((a) => !hiddenAxisIds.includes(a.id)).map((a) => a.id),
     [axes, hiddenAxisIds]
@@ -257,7 +257,6 @@ export default function Home() {
         activeAxisIds={activeAxisIds!}
         mode={mode}
         points={points}
-        selectedPoint={selectedPoint}
         onAddAxis={handleAddAxis}
         onRenameAxis={handleRenameAxis}
         onRemoveAxis={handleRemoveAxis}
@@ -266,8 +265,6 @@ export default function Home() {
           setMode(m);
           setPendingCoordinate(null);
         }}
-        onRepositionPoint={handleRepositionPoint}
-        onDeletePoint={handleDeletePoint}
       />
 
       <div className="viewport">
@@ -323,7 +320,6 @@ export default function Home() {
             : "—"}
         </div>
 
-        {/* View switcher + generation status */}
         <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-2">
           <ViewSwitcher
             viewMode={viewMode}
@@ -332,12 +328,82 @@ export default function Home() {
             onChangeViewMode={handleChangeViewMode}
             onToggleAxisVisibility={handleToggleAxisVisibility}
           />
-          {generatingCount > 0 && (
-            <div className="animate-pulse border border-[#ffb454] bg-[#07090c]/82 px-3 py-2 text-[11px] tracking-[0.14em] text-[#ffb454]">
-              GENERATING {generatingCount} POINT{generatingCount > 1 ? "S" : ""}…
-            </div>
-          )}
         </div>
+
+        {selectedPoint && (
+          <div className="selected-point-floating">
+            <h2 className="section-label">
+              {selectedPoint.isOrigin ? "ORIGIN POINT" : "POINT"}
+            </h2>
+            <div className="relative">
+              {selectedPoint.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  className="inspector-image"
+                  src={selectedPoint.imageUrl}
+                  alt="Selected point"
+                />
+              ) : (
+                <div className="inspector-image relative">
+                  {selectedPoint.status === "generating" && (
+                    <GeneratingLoader />
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="inspector-coords">
+              {axes.map((axis) => {
+                const v = axisValue(selectedPoint.coordinate, axis.id);
+                return (
+                  <div className="coord-row" key={axis.id}>
+                    <span className="coord-pole coord-pole-left">
+                      {axis.negativePole}
+                    </span>
+                    <input
+                      type="range"
+                      className="coord-slider"
+                      min={-1}
+                      max={1}
+                      step={0.01}
+                      value={v}
+                      disabled={selectedPoint.isOrigin}
+                      onChange={(e) =>
+                        handleRepositionPoint(
+                          selectedPoint.id,
+                          axis.id,
+                          parseFloat(e.target.value)
+                        )
+                      }
+                    />
+                    <span className="coord-pole coord-pole-right">
+                      {axis.positivePole}
+                    </span>
+                    <span className="coord-value">
+                      {v >= 0 ? "+" : ""}
+                      {v.toFixed(2)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {selectedPoint.isOrigin ? (
+              <p className="hint">The origin is fixed at the zero coordinate.</p>
+            ) : (
+              <>
+                <p className="hint">
+                  Repositioning calibrates metadata only. The point is not regenerated.
+                </p>
+                <button
+                  className="btn-ghost btn-danger"
+                  style={{ marginTop: 10 }}
+                  onClick={() => handleDeletePoint(selectedPoint.id)}
+                >
+                  DELETE POINT
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </main>
   );

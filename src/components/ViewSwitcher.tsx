@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Asterisk, Cube, CubeTransparent, Eye, EyeClosed, Sparkle } from "@phosphor-icons/react";
+import { Asterisk, Cube, CubeTransparent, Eye, EyeClosed, ArrowsOutCardinal } from "@phosphor-icons/react";
 import { Axis, AxisId, ViewMode } from "@/lib/types";
 
 interface ViewSwitcherProps {
@@ -15,8 +15,8 @@ interface ViewSwitcherProps {
 const VIEWS: { mode: ViewMode; label: string; Icon: React.ElementType }[] = [
   { mode: "slice", label: "Slice view", Icon: Cube },
   { mode: "starburst", label: "Starburst view", Icon: Asterisk },
-  { mode: "projection", label: "Projection view", Icon: CubeTransparent },
-  { mode: "astral", label: "Astral view", Icon: Sparkle },
+  { mode: "projection", label: "Projection view", Icon: ArrowsOutCardinal },
+  { mode: "astral", label: "Astral view", Icon: CubeTransparent },
 ];
 
 export function ViewSwitcher({

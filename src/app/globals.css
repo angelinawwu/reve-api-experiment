@@ -167,7 +167,7 @@
 
 .btn-ghost {
   color: var(--text-dim);
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, var(--text-dim) 50%, transparent);
   padding: 5px 10px;
   font-size: 11px;
   letter-spacing: 0.06em;
@@ -178,7 +178,7 @@
 @media (hover: hover) and (pointer: fine) {
   .btn-ghost:hover:not(:disabled) {
     color: var(--text);
-    border-color: var(--border-strong);
+    border-color: color-mix(in srgb, var(--text) 50%, transparent);
   }
 }
 
@@ -201,18 +201,18 @@
 
 .btn-accent {
   color: var(--accent);
-  border-color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
 }
 
 .btn-ghost.btn-danger {
   color: var(--danger);
-  border-color: var(--border);
+  border-color: color-mix(in srgb, var(--danger) 50%, transparent);
 }
 
 @media (hover: hover) and (pointer: fine) {
   .btn-ghost.btn-danger:hover:not(:disabled) {
     color: var(--danger);
-    border-color: var(--danger);
+    border-color: color-mix(in srgb, var(--danger) 50%, transparent);
   }
 }
 
@@ -415,6 +415,43 @@
 
 .coord-slider:disabled::-webkit-slider-thumb {
   background: var(--text-faint);
+}
+
+.selected-point-floating {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  width: 220px;
+  z-index: 30;
+  pointer-events: auto;
+}
+
+.selected-point-floating .coord-row {
+  grid-template-columns: 70px 1fr 70px;
+  grid-template-areas:
+    "left value right"
+    "slider slider slider";
+  gap: 4px 8px;
+}
+
+.selected-point-floating .coord-pole-left {
+  grid-area: left;
+  text-align: left;
+}
+
+.selected-point-floating .coord-pole-right {
+  grid-area: right;
+  text-align: right;
+}
+
+.selected-point-floating .coord-slider {
+  grid-area: slider;
+  width: 100%;
+}
+
+.selected-point-floating .coord-value {
+  grid-area: value;
+  text-align: center;
 }
 
 /* ---------- viewport & HUD ---------- */

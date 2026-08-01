@@ -202,6 +202,22 @@ function coordToWorldDirs(coord: Coordinate, dirs: AxisDir[]): THREE.Vector3 {
   return out;
 }
 
+/** World position of a coordinate inside one astral sub-cube. */
+function astralChunkPosition(
+  coord: Coordinate,
+  chunk: AstralChunk,
+  q: THREE.Quaternion
+): THREE.Vector3 {
+  const local = new THREE.Vector3();
+  for (let i = 0; i < chunk.ids.length; i++) {
+    local.addScaledVector(
+      ORTHO_DIRS[i].clone().applyQuaternion(q),
+      axisValue(coord, chunk.ids[i]) * WORLD * chunk.scale
+    );
+  }
+  return local.add(chunk.center);
+}
+
 function clamp(v: number): number {
   return Math.max(-1, Math.min(1, v));
 }
@@ -268,6 +284,7 @@ function makeImageTexture(
 interface PointEntry {
   group: THREE.Group;
   sprite: THREE.Sprite;
+  projections: THREE.Sprite[];
   key: string;
 }
 
@@ -450,7 +467,12 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
       ndcFromEvent(e);
       raycaster.setFromCamera(ndc, camera);
       const sprites: THREE.Object3D[] = [];
-      pointEntriesRef.current.forEach((entry) => sprites.push(entry.sprite));
+      pointEntriesRef.current.forEach((entry) => {
+        sprites.push(entry.sprite);
+        if (entry.projections) {
+          sprites.push(...entry.projections);
+        }
+      });
       const hits = raycaster.intersectObjects(sprites, false);
       if (hits.length === 0) return null;
       return (hits[0].object.userData.pointId as string) ?? null;
@@ -598,10 +620,17 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
         // Points ride the rotating bases.
         for (const point of propsNow.points) {
           const entry = pointEntriesRef.current.get(point.id);
-          if (entry) {
-            entry.group.position.copy(
-              coordToWorldDirs(point.coordinate, dirsNow)
+          if (entry && entry.projections) {
+            const positions = chunks.map((chunk, k) =>
+              astralChunkPosition(point.coordinate, chunk, rots[k])
             );
+            entry.group.position.copy(positions[0]);
+            entry.sprite.position.set(0, 0, 0);
+            entry.projections.forEach((proj, k) => {
+              proj.position.copy(positions[k + 1].clone().sub(positions[0]));
+            });
+          } else if (entry) {
+            entry.group.position.copy(coordToWorldDirs(point.coordinate, dirsNow));
           }
         }
       }
@@ -688,6 +717,11 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
         const currentScale = entry.sprite.scale.x;
         const nextScale = THREE.MathUtils.lerp(currentScale, targetScale, 0.15);
         entry.sprite.scale.set(nextScale, nextScale, 1);
+        if (entry.projections) {
+          entry.projections.forEach((proj) =>
+            proj.scale.set(nextScale, nextScale, 1)
+          );
+        }
 
         // Smoothly fade out non-selected points
         let targetOpacity = 1.0;
@@ -970,6 +1004,11 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
         entry = undefined;
       }
 
+      const desiredProjections =
+        props.viewMode === "astral"
+          ? Math.max(0, computeAstralChunks(props.visibleAxisIds).length - 1)
+          : 0;
+
       if (!entry) {
         const group = new THREE.Group();
         const material = new THREE.SpriteMaterial({
@@ -996,12 +1035,40 @@ export function ImageSpaceScene(props: ImageSpaceSceneProps) {
 
         // Drop line to the visible plane/floor for spatial grounding (3D only).
         scene.add(group);
-        entries.set(point.id, { group, sprite, key });
+        entry = { group, sprite, projections: [], key };
+        entries.set(point.id, entry);
       }
 
-      entries
-        .get(point.id)!
-        .group.position.copy(coordToWorldDirs(point.coordinate, pointDirs));
+      // Sync astral projection copies to the number of sub-cubes.
+      const projections = entry!.projections;
+      if (projections.length < desiredProjections) {
+        const material = entry!.sprite.material as THREE.SpriteMaterial;
+        for (let k = projections.length; k < desiredProjections; k++) {
+          const proj = new THREE.Sprite(material);
+          proj.userData.pointId = point.id;
+          projections.push(proj);
+          entry!.group.add(proj);
+        }
+      } else if (projections.length > desiredProjections) {
+        const removed = projections.splice(desiredProjections);
+        removed.forEach((proj) => entry!.group.remove(proj));
+      }
+
+      const pointEntry = entry!;
+      if (props.viewMode === "astral") {
+        const astralChunks = computeAstralChunks(props.visibleAxisIds);
+        const rots = astralChunks.map((c) => astralRotation(c.index, 0));
+        const positions = astralChunks.map((chunk, k) =>
+          astralChunkPosition(point.coordinate, chunk, rots[k])
+        );
+        pointEntry.group.position.copy(positions[0]);
+        pointEntry.sprite.position.set(0, 0, 0);
+        pointEntry.projections.forEach((proj, k) => {
+          proj.position.copy(positions[k + 1].clone().sub(positions[0]));
+        });
+      } else {
+        pointEntry.group.position.copy(coordToWorldDirs(point.coordinate, pointDirs));
+      }
     }
 
     // Remove stale entries.
